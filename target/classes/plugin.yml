@@ -1,0 +1,10 @@
+name: BlockShuffle
+description: Original idea from Dream/GeorgeNotFound, Original code by GeorgeNotFound, Modified by Devvy
+version: 1.1
+main: me.devvy.blockshuffle.BlockShuffle
+api-version: 1.16
+
+commands:
+  blockshuffle:
+    permission: op
+    description: BlockShuffle commands.
