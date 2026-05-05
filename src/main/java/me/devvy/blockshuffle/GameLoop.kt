@@ -48,7 +48,7 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
     private fun doBlockCheck(player: Player, location: Location) {
         val assignedMaterial = roundManager.getAssignedBlock(player) ?: return
         val blockBelow = location.block.getRelative(BlockFace.DOWN).type
-        
+
         if (blockBelow == assignedMaterial) {
             messenger.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1.0f)
             messenger.broadcastBlockFound(player)

@@ -72,7 +72,7 @@ class WorldManager {
                 player.world.dropItemNaturally(player.eyeLocation.subtract(0.0, 0.25, 0.0), item)
             }
         }
-
+        player.inventory.clear()
         messenger.setPlayerFailed(player)
     }
 
