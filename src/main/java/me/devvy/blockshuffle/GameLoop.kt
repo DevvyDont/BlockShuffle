@@ -43,10 +43,10 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
     // All state management delegated to services; methods removed
     // scoreTracker, failedPlayers, assignedMaterialMap accessed via services
 
-    private fun doBlockCheck(player: Player) {
+    private fun doBlockCheck(player: Player, location: Location) {
         val assignedMaterial = roundManager.getAssignedBlock(player) ?: return
-        val blockBelow = player.location.block.getRelative(BlockFace.DOWN).type
-
+        val blockBelow = location.block.getRelative(BlockFace.DOWN).type
+        
         if (blockBelow == assignedMaterial) {
             messenger.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1.0f)
             messenger.broadcastBlockFound(player)
@@ -152,7 +152,6 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
             return
         }
 
-        if (playersStillIn.size == 1) {
         if (playersStillIn.size == 1 && Bukkit.getOnlinePlayers().size != 1) {
             handleGameOverWinner(playersStillIn[0])
             return
@@ -220,7 +219,7 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
 
         if (!roundManager.hasAssignedBlock(event.player)) return
 
-        if (event.from.block != event.to.block) doBlockCheck(event.player)
+        if (event.from.block != event.to.block) doBlockCheck(event.player, event.to)
     }
 
     @EventHandler
