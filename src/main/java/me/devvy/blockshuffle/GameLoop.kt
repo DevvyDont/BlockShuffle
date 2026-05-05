@@ -153,6 +153,7 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
         }
 
         if (playersStillIn.size == 1) {
+        if (playersStillIn.size == 1 && Bukkit.getOnlinePlayers().size != 1) {
             handleGameOverWinner(playersStillIn[0])
             return
         }
