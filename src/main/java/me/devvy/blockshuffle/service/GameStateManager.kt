@@ -39,16 +39,6 @@ class GameStateManager {
     }
 
     /**
-     * Initializes game to prepare state.
-     */
-    fun startPrepare() {
-        state = GameState.PREPARE
-        paused = false
-        timer = GameConfig.PREPARE_TIME_LIMIT * GameConfig.TASK_FREQUENCY
-        roundNumber = -1
-    }
-
-    /**
      * Transitions to in-game state.
      */
     fun startGame() {
@@ -92,16 +82,6 @@ class GameStateManager {
             return false
         }
         return true
-    }
-
-    /**
-     * Resets entire game state.
-     */
-    fun reset() {
-        state = GameState.PREPARE
-        paused = false
-        timer = GameConfig.PREPARE_TIME_LIMIT * GameConfig.TASK_FREQUENCY
-        roundNumber = -1
     }
 
     /**

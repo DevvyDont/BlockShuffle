@@ -84,24 +84,10 @@ class RoundManager(private val blockManager: BlockManager) {
     }
 
     /**
-     * Gets a player's current score.
-     */
-    fun getScore(player: Player): Int {
-        return scoreTracker[player.uniqueId] ?: 0
-    }
-
-    /**
      * Gets all scores as a map.
      */
     fun getAllScores(): Map<UUID, Int> {
         return scoreTracker.toMap()
-    }
-
-    /**
-     * Clears all assigned blocks for the next round.
-     */
-    fun clearAllAssignedBlocks() {
-        assignedMaterialMap.clear()
     }
 
     /**
@@ -116,22 +102,6 @@ class RoundManager(private val blockManager: BlockManager) {
      */
     fun resetRound() {
         assignedMaterialMap.clear()
-    }
-
-    /**
-     * Resets entire game state (for a new game).
-     */
-    fun resetAll() {
-        assignedMaterialMap.clear()
-        failedPlayers.clear()
-        scoreTracker.clear()
-    }
-
-    /**
-     * Gets number of players still active.
-     */
-    fun getActivePlayerCount(): Int {
-        return Bukkit.getOnlinePlayers().size - failedPlayers.size
     }
 }
 
