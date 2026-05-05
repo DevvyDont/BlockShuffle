@@ -8,7 +8,7 @@ import java.util.*
 /**
  * Manages all player-related game logic including scoring, eliminations, and block assignments.
  */
-class RoundManager(private val validMaterials: List<Material>) {
+class RoundManager(private val blockManager: BlockManager) {
 
     private val assignedMaterialMap: MutableMap<UUID, Material> = HashMap()
     private val failedPlayers: MutableSet<UUID> = HashSet()
@@ -27,11 +27,10 @@ class RoundManager(private val validMaterials: List<Material>) {
     /**
      * Assigns a random block to a player.
      */
-    fun assignRandomBlock(player: Player): Material {
-        val randomIndex = (Math.random() * validMaterials.size).toInt()
-        val material = validMaterials[randomIndex]
-        assignedMaterialMap[player.uniqueId] = material
-        return material
+    fun assignRandomBlock(player: Player): Material? {
+        val randomBlock = blockManager.getRandomBlock() ?: return null
+        assignedMaterialMap[player.uniqueId] = randomBlock
+        return randomBlock
     }
 
     /**

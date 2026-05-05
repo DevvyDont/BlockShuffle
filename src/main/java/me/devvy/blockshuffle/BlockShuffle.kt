@@ -2,18 +2,16 @@ package me.devvy.blockshuffle
 
 import me.devvy.blockshuffle.command.CommandHandler
 import me.devvy.blockshuffle.config.GameConfig
+import me.devvy.blockshuffle.config.ConfigManager
+import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.WorldManager
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
-import org.bukkit.Material
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.InputStreamReader
 
 /**
  * Main plugin class for Block Shuffle.
@@ -22,43 +20,21 @@ import java.io.InputStreamReader
 class BlockShuffle : JavaPlugin(), Listener {
 
     private var gameTask: GameLoop? = null
-    @JvmField
-    val validMaterials: MutableList<Material> = ArrayList()
+    private lateinit var configManager: ConfigManager
+    private lateinit var blockManager: BlockManager
 
     override fun onEnable() {
+        // Initialize configuration and block management
+        configManager = ConfigManager(this)
+        blockManager = BlockManager(this, configManager)
+
         // Register command handler
-        getCommand("blockshuffle")?.setExecutor(CommandHandler(this))
+        getCommand("blockshuffle")?.setExecutor(CommandHandler(this, blockManager))
 
         // Register events
         server.pluginManager.registerEvents(this, this)
 
-        // Load valid materials from resource file
-        loadValidMaterials()
-    }
-
-    /**
-     * Loads the list of valid blocks from blocks.txt resource file.
-     */
-    private fun loadValidMaterials() {
-        try {
-            val inputStream = javaClass.getResourceAsStream("/blocks.txt")
-            checkNotNull(inputStream) { "Could not find blocks.txt in resources. Check compilation settings" }
-
-            inputStream.bufferedReader().use { br ->
-                br.forEachLine { line ->
-                    try {
-                        validMaterials.add(Material.valueOf(line.trim()))
-                    } catch (e: IllegalArgumentException) {
-                        logger.warning("Unknown material: $line")
-                    }
-                }
-            }
-
-            logger.info("Loaded ${validMaterials.size} valid materials")
-        } catch (e: IOException) {
-            logger.severe("Failed to load blocks.txt: ${e.message}")
-            e.printStackTrace()
-        }
+        logger.info("BlockShuffle enabled with ${blockManager.getEnabledBlocks().size} valid blocks")
     }
 
     /**
@@ -71,7 +47,7 @@ class BlockShuffle : JavaPlugin(), Listener {
         val worldManager = WorldManager()
         worldManager.initializeAllPlayersForGame(messenger)
 
-        gameTask = GameLoop()
+        gameTask = GameLoop(blockManager)
         gameTask!!.runTaskTimer(this, 0, GameConfig.TASK_TICK_PERIOD)
         server.pluginManager.registerEvents(gameTask!!, this)
     }
@@ -106,6 +82,13 @@ class BlockShuffle : JavaPlugin(), Listener {
         return gameTask
     }
 
+    /**
+     * Gets the block manager for configuration access.
+     */
+    fun getBlockManager(): BlockManager {
+        return blockManager
+    }
+
     companion object {
         @JvmStatic
         fun getInstance(): BlockShuffle {
@@ -113,3 +96,5 @@ class BlockShuffle : JavaPlugin(), Listener {
         }
     }
 }
+
+

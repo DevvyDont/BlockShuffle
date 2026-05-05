@@ -1,17 +1,23 @@
 ﻿package me.devvy.blockshuffle.command
 
 import me.devvy.blockshuffle.BlockShuffle
+import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.WorldManager
+import me.devvy.blockshuffle.ui.BlockSelectionMenu
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
+import org.bukkit.entity.Player
 
 /**
  * Handles all command execution for the Block Shuffle plugin.
  */
-class CommandHandler(private val plugin: BlockShuffle) : CommandExecutor {
+class CommandHandler(
+    private val plugin: BlockShuffle,
+    private val blockManager: BlockManager
+) : CommandExecutor {
 
     private val worldManager = WorldManager()
 
@@ -36,6 +42,7 @@ class CommandHandler(private val plugin: BlockShuffle) : CommandExecutor {
             arg.equals("tpstart", ignoreCase = true) -> handleStart(sender, true)
             arg.equals("pause", ignoreCase = true) -> handlePause(sender)
             arg.equals("stop", ignoreCase = true) -> handleStop(sender)
+            arg.equals("blocks", ignoreCase = true) -> handleBlocks(sender)
             else -> handleInvalidUsage(sender)
         }
     }
@@ -100,12 +107,29 @@ class CommandHandler(private val plugin: BlockShuffle) : CommandExecutor {
         return true
     }
 
+    private fun handleBlocks(sender: CommandSender): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage(Component.text("This command can only be used by players.", NamedTextColor.RED))
+            return false
+        }
+
+        if (!sender.isOp) {
+            sender.sendMessage(Component.text("You do not have permission to use this command.", NamedTextColor.RED))
+            return false
+        }
+
+        BlockSelectionMenu.openForPlayer(plugin, blockManager, sender)
+        sender.sendMessage(Component.text("Opening block selection menu...", NamedTextColor.GREEN))
+        return true
+    }
+
     private fun handleInvalidUsage(sender: CommandSender): Boolean {
         sender.sendMessage(Component.text("Invalid usage. Please use:", NamedTextColor.RED))
         sender.sendMessage(Component.text("/blockshuffle start", NamedTextColor.RED))
         sender.sendMessage(Component.text("/blockshuffle tpstart", NamedTextColor.RED))
         sender.sendMessage(Component.text("/blockshuffle stop", NamedTextColor.RED))
         sender.sendMessage(Component.text("/blockshuffle pause", NamedTextColor.RED))
+        sender.sendMessage(Component.text("/blockshuffle blocks", NamedTextColor.RED))
         return false
     }
 }

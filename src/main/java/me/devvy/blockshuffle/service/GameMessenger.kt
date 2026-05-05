@@ -160,7 +160,7 @@ class GameMessenger {
             )
             return
         }
-        
+
         // First round display (initial one)
         player.showTitle(Title.title(
             Component.text("Block Shuffle!", NamedTextColor.LIGHT_PURPLE),

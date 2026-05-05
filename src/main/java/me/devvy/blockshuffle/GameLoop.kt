@@ -21,10 +21,10 @@ import org.bukkit.scheduler.BukkitRunnable
  * Main game loop that orchestrates all game logic.
  * Delegates to service classes for specific concerns.
  */
-class GameLoop : BukkitRunnable(), Listener {
+class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockManager) : BukkitRunnable(), Listener {
 
     private val stateManager = GameStateManager()
-    private val roundManager = RoundManager(getInstance().validMaterials)
+    private val roundManager = RoundManager(blockManager)
     private val messenger = GameMessenger()
     private val worldManager = WorldManager()
 
@@ -81,7 +81,7 @@ class GameLoop : BukkitRunnable(), Listener {
     }
 
     private fun assignBlockToPlayer(player: Player) {
-        val material = roundManager.assignRandomBlock(player)
+        val material = roundManager.assignRandomBlock(player) ?: return
         messenger.broadcastBlockAssignment(player, material)
         messenger.setPlayerInGame(player, material)
     }
