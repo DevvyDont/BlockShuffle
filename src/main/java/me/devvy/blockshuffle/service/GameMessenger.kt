@@ -28,7 +28,7 @@ import kotlin.math.roundToInt
  * Centralized messaging and UI system for the game.
  * Handles all broadcasts, titles, action bars, and sounds.
  */
-class GameMessenger {
+class GameMessenger(private val blockManager: BlockManager) {
 
     /**
      * Sends an action bar update to a player based on game state.
@@ -49,7 +49,9 @@ class GameMessenger {
                     val name = capitalizeFully(
                         assignedMaterial.name.lowercase(Locale.getDefault()).replace("_", " ")
                     )
-                    val matPart = append(gray("Stand on: "), blockName(name), gray(" | "))
+                    val matPart = append(gray("Stand on: "), TextUtils.blockWithDifficulty(name, blockManager.getBlockDifficulty(
+                        assignedMaterial
+                    )), gray(" | "))
                     append(matPart, timeDisplay)
                 } else {
                     timeDisplay
@@ -78,7 +80,7 @@ class GameMessenger {
         val message = append(
             playerName(player.name),
             yellow(" must find and stand on "),
-            blockName(capitalizeFully(name)),
+            TextUtils.blockWithDifficulty(capitalizeFully(name), blockManager.getBlockDifficulty(material)),
             yellow(".")
         )
 
@@ -222,12 +224,8 @@ class GameMessenger {
      */
     fun setPlayerInGame(player: Player, assignedMaterial: Material) {
         val name = assignedMaterial.name.uppercase(Locale.getDefault()).replace("_", " ")
-        player.playerListName(
-            Component.text(
-                "[$name] ",
-                NamedTextColor.RED
-            ).append(player.name().color(NamedTextColor.AQUA))
-        )
+        val blockComp = TextUtils.blockWithDifficulty(name, blockManager.getBlockDifficulty(assignedMaterial))
+        player.playerListName(blockComp.append(Component.space()).append(player.name().color(NamedTextColor.AQUA)))
     }
 
     /**

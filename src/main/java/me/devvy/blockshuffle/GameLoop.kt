@@ -27,7 +27,7 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
 
     private val stateManager = GameStateManager()
     private val roundManager = RoundManager(blockManager)
-    private val messenger = GameMessenger()
+    private val messenger = GameMessenger(blockManager)
     private val worldManager = WorldManager()
 
     init {
@@ -83,7 +83,7 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
     }
 
     private fun assignBlockToPlayer(player: Player) {
-        val material = roundManager.assignRandomBlock(player) ?: return
+        val material = roundManager.assignRandomBlock(player, stateManager.getRoundNumber()) ?: return
         messenger.broadcastBlockAssignment(player, material)
         messenger.setPlayerInGame(player, material)
     }
@@ -221,7 +221,7 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
 
         if (!roundManager.hasAssignedBlock(event.player)) return
 
-        if (event.from.block != event.to.block) doBlockCheck(event.player, event.to)
+        doBlockCheck(event.player, event.to)
     }
 
     @EventHandler
@@ -237,4 +237,3 @@ class GameLoop(private val blockManager: me.devvy.blockshuffle.service.BlockMana
     }
 
 }
-

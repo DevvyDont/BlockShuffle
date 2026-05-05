@@ -7,6 +7,15 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 
 /**
+ * Data class representing a block's configuration.
+ */
+data class BlockConfig(
+    val material: Material,
+    val difficulty: Int,
+    val enabled: Boolean
+)
+
+/**
  * Manages plugin configuration (config.yml) including block persistence.
  * Handles loading, saving, and YAML serialization for blocks and other settings.
  */
@@ -41,9 +50,8 @@ class ConfigManager(private val plugin: JavaPlugin) {
         val config = YamlConfiguration()
 
         // Initialize with default empty blocks section
-        config.set("blocks.enabled", emptyList<String>())
-        config.set("blocks.disabled", emptyList<String>())
-        config.set("version", "1.0")
+        config.createSection("blocks")
+        config.set("version", "2.0")
 
         config.save(configFile)
         plugin.logger.info("Created default config.yml")
@@ -54,6 +62,34 @@ class ConfigManager(private val plugin: JavaPlugin) {
      */
     fun load() {
         config = YamlConfiguration.loadConfiguration(configFile)
+        migrateOldConfigIfNeeded()
+    }
+
+    /**
+     * Migrates old list-based config to new map-based structure.
+     */
+    private fun migrateOldConfigIfNeeded() {
+        if (config.contains("blocks.enabled") || config.contains("blocks.disabled")) {
+            plugin.logger.info("Migrating old config format to new structure...")
+
+            val enabled = getEnabledBlocks()
+            val disabled = getDisabledBlocks()
+
+            // Clear old sections
+            config.set("blocks.enabled", null)
+            config.set("blocks.disabled", null)
+
+            // Set default difficulty of 1 for migrated blocks
+            for (material in enabled) {
+                setBlockConfig(material, BlockConfig(material, 1, true))
+            }
+            for (material in disabled) {
+                setBlockConfig(material, BlockConfig(material, 1, false))
+            }
+
+            save()
+            plugin.logger.info("Migration complete. All blocks set to difficulty 1.")
+        }
     }
 
     /**
@@ -69,52 +105,62 @@ class ConfigManager(private val plugin: JavaPlugin) {
     }
 
     /**
+     * Gets all block configurations from config.
+     */
+    fun getAllBlockConfigs(): Map<Material, BlockConfig> {
+        val blocksSection = config.getConfigurationSection("blocks") ?: return emptyMap()
+        val result = mutableMapOf<Material, BlockConfig>()
+
+        for (key in blocksSection.getKeys(false)) {
+            try {
+                val material = Material.valueOf(key)
+                val difficulty = blocksSection.getInt("$key.difficulty", 1)
+                val enabled = blocksSection.getBoolean("$key.enabled", true)
+                result[material] = BlockConfig(material, difficulty, enabled)
+            } catch (e: IllegalArgumentException) {
+                plugin.logger.warning("Unknown material in config: $key")
+            }
+        }
+
+        return result
+    }
+
+    /**
      * Gets the list of enabled blocks from config.
      */
     fun getEnabledBlocks(): List<Material> {
-        val enabledNames = config.getStringList("blocks.enabled")
-        return enabledNames.mapNotNull { name ->
-            try {
-                Material.valueOf(name)
-            } catch (e: IllegalArgumentException) {
-                plugin.logger.warning("Unknown material in config: $name")
-                null
-            }
-        }
+        return getAllBlockConfigs().filter { it.value.enabled }.keys.toList()
     }
 
     /**
      * Gets the list of disabled blocks from config.
      */
     fun getDisabledBlocks(): List<Material> {
-        val disabledNames = config.getStringList("blocks.disabled")
-        return disabledNames.mapNotNull { name ->
-            try {
-                Material.valueOf(name)
-            } catch (e: IllegalArgumentException) {
-                null
-            }
-        }
+        return getAllBlockConfigs().filter { !it.value.enabled }.keys.toList()
     }
 
     /**
-     * Sets the list of enabled blocks and saves to config.
+     * Gets the difficulty of a specific block.
      */
-    fun setEnabledBlocks(blocks: List<Material>) {
-        val blockNames = blocks.map { it.name }
-        config.set("blocks.enabled", blockNames)
-        save()
-        load()
+    fun getBlockDifficulty(material: Material): Int {
+        return getAllBlockConfigs()[material]?.difficulty ?: 1
     }
 
     /**
-     * Sets the list of disabled blocks and saves to config.
+     * Sets the configuration for a specific block.
      */
-    fun setDisabledBlocks(blocks: List<Material>) {
-        val blockNames = blocks.map { it.name }
-        config.set("blocks.disabled", blockNames)
+    fun setBlockConfig(material: Material, blockConfig: BlockConfig) {
+        config.set("blocks.${material.name}.difficulty", blockConfig.difficulty)
+        config.set("blocks.${material.name}.enabled", blockConfig.enabled)
         save()
-        load()
+    }
+
+    /**
+     * Sets the difficulty for a specific block.
+     */
+    fun setBlockDifficulty(material: Material, difficulty: Int) {
+        val currentConfig = getAllBlockConfigs()[material] ?: BlockConfig(material, 1, true)
+        setBlockConfig(material, currentConfig.copy(difficulty = difficulty))
     }
 
     /**
@@ -122,41 +168,33 @@ class ConfigManager(private val plugin: JavaPlugin) {
      * Returns true if the block is now enabled, false if disabled.
      */
     fun toggleBlock(material: Material): Boolean {
-        val enabled = getEnabledBlocks().toMutableList()
-        val disabled = getDisabledBlocks().toMutableList()
-
-        return when {
-            enabled.contains(material) -> {
-                enabled.remove(material)
-                disabled.add(material)
-                setEnabledBlocks(enabled)
-                setDisabledBlocks(disabled)
-                false
-            }
-            disabled.contains(material) -> {
-                disabled.remove(material)
-                enabled.add(material)
-                setEnabledBlocks(enabled)
-                setDisabledBlocks(disabled)
-                true
-            }
-            else -> {
-                // Not tracked, so add as enabled
-                enabled.add(material)
-                setEnabledBlocks(enabled)
-                true
-            }
-        }
+        val currentConfig = getAllBlockConfigs()[material] ?: BlockConfig(material, 1, true)
+        val newEnabled = !currentConfig.enabled
+        setBlockConfig(material, currentConfig.copy(enabled = newEnabled))
+        return newEnabled
     }
 
     /**
-     * Initializes blocks list from a given list, saving to config.
+     * Initializes blocks from a map of material to difficulty, setting all as enabled.
      */
-    fun initializeBlocks(blocks: List<Material>, disabled: List<Material>) {
-        val enabled = blocks.toMutableList()
-        val disabled = disabled.toMutableList()
-        setEnabledBlocks(enabled)
-        setDisabledBlocks(disabled)
+    fun initializeBlocks(blockDifficulties: Map<Material, Int>) {
+        for ((material, difficulty) in blockDifficulties) {
+            setBlockConfig(material, BlockConfig(material, difficulty, true))
+        }
+    }
+
+    // Deprecated methods for backward compatibility
+    /**
+     * @deprecated Use getEnabledBlocks() instead.
+     */
+    fun setEnabledBlocks(blocks: List<Material>) {
+        // No-op, kept for compatibility
+    }
+
+    /**
+     * @deprecated Use getDisabledBlocks() instead.
+     */
+    fun setDisabledBlocks(blocks: List<Material>) {
+        // No-op, kept for compatibility
     }
 }
-

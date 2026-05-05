@@ -2,6 +2,7 @@
 
 import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.util.BlockValidator
+import me.devvy.blockshuffle.util.TextUtils
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -13,6 +14,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
+import org.bukkit.event.inventory.ClickType
 import org.bukkit.event.inventory.InventoryAction
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
@@ -36,6 +38,7 @@ class BlockSelectionMenu(
     private val allBlocks: List<Material> = blockManager.getAllValidGameBlocks()
     private val inventory: Inventory = Bukkit.createInventory(player, 54, Component.text("Block Manager"))
     private var filter: TriState = TriState.DEFAULT // Filter between default, enabled blocks, disabled blocks
+    private var difficultyFilter: Int = 0 // 0 = all, 1-5 = specific difficulty
 
     init {
         registerListeners()
@@ -49,6 +52,11 @@ class BlockSelectionMenu(
             blocksToShow = blockManager.getEnabledBlocks()
         else if (filter == TriState.FALSE)
             blocksToShow = blockManager.getDisabledBlocks()
+
+        if (difficultyFilter > 0) {
+            blocksToShow = blocksToShow.filter { blockManager.getBlockDifficulty(it) == difficultyFilter }
+        }
+
         return blocksToShow
     }
 
@@ -60,7 +68,8 @@ class BlockSelectionMenu(
             inventory.setItem(i, ItemStack(Material.BLACK_STAINED_GLASS_PANE))
 
         val blocksToShow: List<Material> = getBlocksToDisplay()
-        inventory.setItem(47, createFilterButton())
+        inventory.setItem(46, createFilterButton())
+        inventory.setItem(47, createDifficultyFilterButton())
 
         val totalPages = (blocksToShow.size + blocksPerPage - 1) / blocksPerPage
         if (currentPage >= totalPages)
@@ -105,6 +114,7 @@ class BlockSelectionMenu(
      */
     private fun createBlockItem(material: Material): ItemStack {
         val isEnabled = blockManager.isBlockEnabled(material)
+        val difficulty = blockManager.getBlockDifficulty(material)
         val displayName = BlockValidator.getMaterialDisplayName(material)
 
         val item = ItemStack(material)
@@ -128,6 +138,12 @@ class BlockSelectionMenu(
                 Component.text(if (isEnabled) "ENABLED" else "DISABLED")
                     .color(if (isEnabled) NamedTextColor.GREEN else NamedTextColor.RED)
             ))
+
+        // Difficulty line
+        lore.add(Component.text("Difficulty: ")
+            .color(NamedTextColor.GRAY).append(TextUtils.difficultyStars(difficulty, true)))
+
+        item.amount = difficulty
 
         // Block properties
         lore.add(Component.empty())
@@ -153,7 +169,8 @@ class BlockSelectionMenu(
 
         // Click instruction
         lore.add(Component.empty())
-        lore.add(Component.text("Click to toggle", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, true))
+        lore.add(Component.text("Left click to toggle", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, true))
+        lore.add(Component.text("Right click to change difficulty", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, true))
 
         meta.lore(lore)
         item.itemMeta = meta
@@ -204,6 +221,24 @@ class BlockSelectionMenu(
         return item
     }
 
+    private fun createDifficultyFilterButton(): ItemStack {
+        val item = ItemStack(Material.EXPERIENCE_BOTTLE)
+        val meta = item.itemMeta ?: return item
+        meta.displayName(Component.text("Filter by Difficulty", NamedTextColor.GOLD))
+        val lore = mutableListOf<Component>()
+        lore.add(Component.empty())
+        lore.add(Component.text("> All Difficulties", if (difficultyFilter == 0) NamedTextColor.GREEN else NamedTextColor.DARK_GRAY))
+        for (i in 1..5) {
+            val stars = "★".repeat(i) + "☆".repeat(5 - i)
+            lore.add(Component.text("> Difficulty $i: $stars", if (difficultyFilter == i) NamedTextColor.GREEN else NamedTextColor.DARK_GRAY))
+        }
+        if (difficultyFilter != 0)
+            meta.setEnchantmentGlintOverride(true)
+        meta.lore(lore)
+        item.itemMeta = meta
+        return item
+    }
+
     /**
      * Creates an info button.
      */
@@ -222,9 +257,18 @@ class BlockSelectionMenu(
             .append(Component.text(enabledCount.toString(), NamedTextColor.GREEN)))
 
         lore.add(Component.empty())
+        lore.add(Component.text("Difficulty Distribution:", NamedTextColor.GOLD).decoration(TextDecoration.BOLD, true))
+        for (diff in 1..5) {
+            val count = allBlocks.count { blockManager.getBlockDifficulty(it) == diff && blockManager.isBlockEnabled(it) }
+            val stars = "★".repeat(diff) + "☆".repeat(5 - diff)
+            lore.add(Component.text("$stars: $count", NamedTextColor.YELLOW))
+        }
+
+        lore.add(Component.empty())
         lore.add(Component.text("Tips:", NamedTextColor.YELLOW).decoration(TextDecoration.BOLD, true))
-        lore.add(Component.text("• Click blocks to toggle", NamedTextColor.GRAY))
-        lore.add(Component.text("• Use arrows to navigate", NamedTextColor.GRAY))
+        lore.add(Component.text("• Left click blocks to toggle", NamedTextColor.GRAY))
+        lore.add(Component.text("• Right click to change difficulty", NamedTextColor.GRAY))
+        lore.add(Component.text("• Use filters to narrow down", NamedTextColor.GRAY))
         lore.add(Component.text("• Close to save changes", NamedTextColor.GRAY))
 
         meta.lore(lore)
@@ -247,7 +291,7 @@ class BlockSelectionMenu(
 
         event.isCancelled = true
 
-        if (event.action != InventoryAction.PICKUP_ALL)
+        if (event.action != InventoryAction.PICKUP_ALL && event.action != InventoryAction.PICKUP_HALF)
             return
 
         val slot = event.rawSlot
@@ -265,18 +309,25 @@ class BlockSelectionMenu(
                 }
                 player.playSound(player.location, Sound.ITEM_BOOK_PAGE_TURN, 1.0f, .5f)
             }
-            47 -> {
+            46 -> {
                 filter = when (filter) {
                     TriState.DEFAULT -> TriState.TRUE
                     TriState.TRUE -> TriState.FALSE
                     TriState.FALSE -> TriState.DEFAULT
                 }
+                currentPage = 0
+                render()
+                player.playSound(player.location, Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f)
+            }
+            47 -> {
+                difficultyFilter = (difficultyFilter + 1) % 6 // 0 to 5
+                currentPage = 0
                 render()
                 player.playSound(player.location, Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f)
             }
             53 -> {
                 // Next page button
-                val totalPages = (allBlocks.size + blocksPerPage - 1) / blocksPerPage
+                val totalPages = (getBlocksToDisplay().size + blocksPerPage - 1) / blocksPerPage
                 if (currentPage + 1 < totalPages) {
                     currentPage++
                     render()
@@ -291,19 +342,36 @@ class BlockSelectionMenu(
                 // Block item clicked
                 if (slot < 45) {
                     val clickedItem = inventory.getItem(slot) ?: return
-                    player.playSound(player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.0f)
-                    blockManager.toggleBlock(clickedItem.type)
-                    player.sendMessage(
-                        Component.text()
-                            .append(Component.text("${BlockValidator.getMaterialDisplayName(clickedItem.type)}: ", NamedTextColor.GOLD))
-                            .append(
-                                Component.text(
-                                    if (blockManager.isBlockEnabled(clickedItem.type)) "ENABLED" else "DISABLED",
-                                    if (blockManager.isBlockEnabled(clickedItem.type)) NamedTextColor.GREEN else NamedTextColor.RED
+                    val material = clickedItem.type
+
+                    if (event.click == ClickType.RIGHT) {
+                        // Cycle difficulty
+                        val currentDifficulty = blockManager.getBlockDifficulty(material)
+                        val newDifficulty = (currentDifficulty % 5) + 1
+                        blockManager.setBlockDifficulty(material, newDifficulty)
+                        player.sendMessage(
+                            Component.text()
+                                .append(Component.text("${BlockValidator.getMaterialDisplayName(material)} difficulty: ", NamedTextColor.GOLD))
+                                .append(Component.text("★".repeat(newDifficulty) + "☆".repeat(5 - newDifficulty), NamedTextColor.YELLOW))
+                                .build()
+                        )
+                        player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f)
+                    } else {
+                        // Toggle enabled/disabled
+                        blockManager.toggleBlock(material)
+                        player.sendMessage(
+                            Component.text()
+                                .append(Component.text("${BlockValidator.getMaterialDisplayName(material)}: ", NamedTextColor.GOLD))
+                                .append(
+                                    Component.text(
+                                        if (blockManager.isBlockEnabled(material)) "ENABLED" else "DISABLED",
+                                        if (blockManager.isBlockEnabled(material)) NamedTextColor.GREEN else NamedTextColor.RED
+                                    )
                                 )
-                            )
-                            .build()
-                    )
+                                .build()
+                        )
+                        player.playSound(player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.0f)
+                    }
                     render() // Refresh to show updated state
                 }
             }
@@ -335,9 +403,3 @@ class BlockSelectionMenu(
         }
     }
 }
-
-
-
-
-
-

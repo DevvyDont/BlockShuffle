@@ -3,6 +3,8 @@
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minecraft.network.chat.TextColor
+import org.bukkit.Material
 
 /**
  * Consolidated utility functions for text and component handling.
@@ -55,6 +57,12 @@ object TextUtils {
         Component.text(blockName, NamedTextColor.RED, TextDecoration.BOLD)
 
     /**
+     * Creates a block name component (Red bold).
+     */
+    fun blockWithDifficulty(blockName: String, stars: Int): Component =
+        Component.text(blockName, NamedTextColor.RED, TextDecoration.BOLD).append(difficultyStars(stars))
+
+    /**
      * Creates a gray text component.
      */
     fun gray(text: String): Component =
@@ -77,5 +85,19 @@ object TextUtils {
      */
     fun darkGray(text: String): Component =
         Component.text(text, NamedTextColor.DARK_GRAY)
+
+    fun difficultyStars(stars: Int, showAll: Boolean = false): Component {
+        var str =  "⭐".repeat(stars)
+        if (showAll)
+            str += "✰".repeat(5 - stars)
+        val color = when (stars) {
+            1 -> NamedTextColor.GREEN
+            2 -> NamedTextColor.YELLOW
+            3 -> NamedTextColor.GOLD
+            4 -> NamedTextColor.RED
+            else -> NamedTextColor.DARK_RED
+        }
+        return Component.text(str, color).decoration(TextDecoration.BOLD, false)
+    }
 }
 

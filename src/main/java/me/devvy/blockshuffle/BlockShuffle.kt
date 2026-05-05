@@ -1,9 +1,10 @@
 package me.devvy.blockshuffle
 
 import me.devvy.blockshuffle.command.CommandHandler
-import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.config.ConfigManager
+import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.service.BlockManager
+import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.WorldManager
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -24,7 +25,7 @@ class BlockShuffle : JavaPlugin(), Listener {
     private lateinit var blockManager: BlockManager
 
     override fun onEnable() {
-        // Initialize configuration and block management
+        // Initialize managers
         configManager = ConfigManager(this)
         blockManager = BlockManager(this, configManager)
 
@@ -33,8 +34,6 @@ class BlockShuffle : JavaPlugin(), Listener {
 
         // Register events
         server.pluginManager.registerEvents(this, this)
-
-        logger.info("BlockShuffle enabled with ${blockManager.getEnabledBlocks().size} valid blocks")
     }
 
     /**
@@ -43,7 +42,7 @@ class BlockShuffle : JavaPlugin(), Listener {
     fun start() {
         stop() // Ensure any existing game is stopped first
 
-        val messenger = me.devvy.blockshuffle.service.GameMessenger()
+        val messenger = GameMessenger(blockManager)
         val worldManager = WorldManager()
         worldManager.initializeAllPlayersForGame(messenger)
 
@@ -83,7 +82,7 @@ class BlockShuffle : JavaPlugin(), Listener {
     }
 
     /**
-     * Gets the block manager for configuration access.
+     * Gets the block manager.
      */
     fun getBlockManager(): BlockManager {
         return blockManager
@@ -96,5 +95,3 @@ class BlockShuffle : JavaPlugin(), Listener {
         }
     }
 }
-
-
