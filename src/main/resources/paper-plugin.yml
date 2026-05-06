@@ -1,0 +1,6 @@
+﻿name: BlockShuffle
+version: '3.0'
+main: me.devvy.blockshuffle.BlockShuffle
+description: Original idea from Dream/GeorgeNotFound, Original code by GeorgeNotFound, Modified by Devvy
+api-version: '26.1.2'
+bootstrapper: me.devvy.blockshuffle.BlockShuffleBootstrapper

@@ -1,6 +1,5 @@
 package me.devvy.blockshuffle
 
-import me.devvy.blockshuffle.command.CommandHandler
 import me.devvy.blockshuffle.config.ConfigManager
 import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.gamemode.BlitzMode
@@ -26,13 +25,12 @@ class BlockShuffle : JavaPlugin(), Listener {
     private lateinit var configManager: ConfigManager
     private lateinit var blockManager: BlockManager
 
+    var doBlitzMode = true
+
     override fun onEnable() {
         // Initialize managers
         configManager = ConfigManager(this)
         blockManager = BlockManager(this, configManager)
-
-        // Register command handler
-        getCommand("blockshuffle")?.setExecutor(CommandHandler(this, blockManager))
 
         // Register events
         server.pluginManager.registerEvents(this, this)
@@ -49,8 +47,10 @@ class BlockShuffle : JavaPlugin(), Listener {
         val worldManager = WorldManager()
         worldManager.initializeAllPlayersForGame(messenger)
 
-        // Create and start ClassicMode
-        val gameMode = BlitzMode(this, blockManager)
+        // Create and start
+        var gameMode: me.devvy.blockshuffle.gamemode.GameMode = ClassicMode(blockManager)
+        if (doBlitzMode)
+            gameMode = BlitzMode(this, blockManager)
         gameTask = GameLoop(gameMode)
         gameTask!!.runTaskTimer(this, 0, GameConfig.TASK_TICK_PERIOD)
         server.pluginManager.registerEvents(gameTask!!, this)
