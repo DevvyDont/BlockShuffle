@@ -124,7 +124,7 @@ object BlockValidator {
             "nether_wart",      // Crop, too small
             "amethyst_cluster", // Too small
             "conduit",          // Hollow/unsafe
-            "wall_hanging",     // Not an item
+            "hanging",          // Not an item
             "wall_sign",        // Not an item
             "wall_torch",       // Not an item
             "torch",            // Not an item
@@ -136,6 +136,7 @@ object BlockValidator {
             "moving",           // Not an item
             "wire",             // Not an item
             "wall",             // Not an item
+            "wheat",            // Not an item
         )
 
         return excludedPatterns.any { nameLower.contains(it) }
