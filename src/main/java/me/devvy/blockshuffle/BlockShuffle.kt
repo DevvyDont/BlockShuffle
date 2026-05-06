@@ -3,6 +3,7 @@ package me.devvy.blockshuffle
 import me.devvy.blockshuffle.command.CommandHandler
 import me.devvy.blockshuffle.config.ConfigManager
 import me.devvy.blockshuffle.config.GameConfig
+import me.devvy.blockshuffle.gamemode.ClassicMode
 import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.WorldManager
@@ -37,7 +38,8 @@ class BlockShuffle : JavaPlugin(), Listener {
     }
 
     /**
-     * Starts a new game of Block Shuffle.
+     * Starts a new game using Classic mode (default).
+     * In the future, this can be extended to support other game modes.
      */
     fun start() {
         stop() // Ensure any existing game is stopped first
@@ -46,7 +48,9 @@ class BlockShuffle : JavaPlugin(), Listener {
         val worldManager = WorldManager()
         worldManager.initializeAllPlayersForGame(messenger)
 
-        gameTask = GameLoop(blockManager)
+        // Create and start ClassicMode
+        val gameMode = ClassicMode(blockManager)
+        gameTask = GameLoop(gameMode)
         gameTask!!.runTaskTimer(this, 0, GameConfig.TASK_TICK_PERIOD)
         server.pluginManager.registerEvents(gameTask!!, this)
     }

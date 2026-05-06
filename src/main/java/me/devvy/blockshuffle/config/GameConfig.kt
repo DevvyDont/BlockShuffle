@@ -8,6 +8,7 @@ object GameConfig {
     // Time limits (in seconds)
     const val GAME_TIME_LIMIT: Int = 300
     const val PREPARE_TIME_LIMIT: Int = 120
+    const val ROUND_INTERMISSION_TIME_LIMIT: Int = 10
 
     // Game loop frequency (ticks per second the task runs)
     const val TASK_FREQUENCY: Int = 10

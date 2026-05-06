@@ -53,7 +53,8 @@ class GameStateManager {
      */
     fun nextRound() {
         roundNumber++
-        timer = GameConfig.GAME_TIME_LIMIT * GameConfig.TASK_FREQUENCY
+        timer = GameConfig.ROUND_INTERMISSION_TIME_LIMIT * GameConfig.TASK_FREQUENCY
+        state = GameState.PREPARE
     }
 
     /**
