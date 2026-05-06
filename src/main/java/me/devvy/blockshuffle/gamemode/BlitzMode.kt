@@ -272,6 +272,25 @@ class BlitzMode(
             messenger.sendDetailedActionBar(player, state, timeRemaining, score, blockMaterial, timeModifier = timerManager.getCurrentTimeDelta(player))
             // Play warning sounds
             messenger.playTimerWarningSfx(player, timerManager.getTimeRemainingTicks(player))
+
+            // Heartbeat - frequency based on time remaining
+            val sec = timeRemaining / GameConfig.TASK_FREQUENCY
+            if (sec <= 10) {
+                // 10 seconds or lower: every half second
+                if (timeRemaining % 10 == 5 || timeRemaining % 10 == 0) {
+                    player.playSound(player.location, Sound.ENTITY_WARDEN_HEARTBEAT, 1f, .75f)
+                }
+            } else if (sec <= 30) {
+                // 10-30 seconds: every second
+                if (timeRemaining % 10 == 0) {
+                    player.playSound(player.location, Sound.ENTITY_WARDEN_HEARTBEAT, 1f, .75f)
+                }
+            } else if (sec <= 60) {
+                // 30-60 seconds: every 2 seconds
+                if (timeRemaining % 20 == 0) {
+                    player.playSound(player.location, Sound.ENTITY_WARDEN_HEARTBEAT, 1f, .75f)
+                }
+            }
         }
     }
 
