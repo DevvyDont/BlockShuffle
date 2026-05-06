@@ -26,8 +26,8 @@ object GameConfig {
     const val SPAWN_SEARCH_RANGE: Int = 2000000
 
     // Blitz mode settings
-    const val BLITZ_STARTING_TIME_SECONDS: Int = 300
-    const val BLITZ_TIME_PER_BLOCK_SECONDS: Int = 120
+    const val BLITZ_STARTING_TIME_SECONDS: Int = 180
+    const val BLITZ_TIME_PER_BLOCK_SECONDS: Int = 60
     const val BLITZ_TIME_BONUS_PER_DIFFICULTY = 60
     const val BLITZ_DAMAGE_TO_TIME_RATIO: Double = 1.0
 }
