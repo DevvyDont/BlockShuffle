@@ -3,7 +3,6 @@
 import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.util.TextUtils
 import me.devvy.blockshuffle.util.TextUtils.append
-import me.devvy.blockshuffle.util.TextUtils.blockName
 import me.devvy.blockshuffle.util.TextUtils.capitalizeFully
 import me.devvy.blockshuffle.util.TextUtils.darkGray
 import me.devvy.blockshuffle.util.TextUtils.darkRed
@@ -22,7 +21,6 @@ import org.bukkit.entity.Player
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.TimeUnit
-import kotlin.math.roundToInt
 
 /**
  * Centralized messaging and UI system for the game.
@@ -30,10 +28,24 @@ import kotlin.math.roundToInt
  */
 class GameMessenger(private val blockManager: BlockManager) {
 
+    fun playTimerWarningSfx(player: Player, ticksLeft: Int) {
+        val secondsLeft = (ticksLeft.toDouble() / GameConfig.TASK_FREQUENCY).toInt()
+        if ((secondsLeft == 30 || secondsLeft == 60) && ticksLeft % GameConfig.TASK_FREQUENCY == 0) {
+            playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.5f)
+        } else if (secondsLeft <= 3 && ticksLeft % GameConfig.TASK_FREQUENCY == 0) {
+            val pitch = 1.8f - secondsLeft * 0.15f
+            playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, pitch)
+        } else if (secondsLeft <= 5 && ticksLeft % GameConfig.TASK_FREQUENCY == 0) {
+            playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1f)
+        } else if (secondsLeft <= 10 && ticksLeft % GameConfig.TASK_FREQUENCY == 0) {
+            playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.75f)
+        }
+    }
+
     /**
      * Sends an action bar update to a player based on game state.
      */
-    fun sendActionBar(
+    fun sendSimpleActionBar(
         player: Player,
         gameState: String,
         timeLeft: Int,
@@ -53,6 +65,48 @@ class GameMessenger(private val blockManager: BlockManager) {
                         assignedMaterial
                     )), gray(" | "))
                     append(matPart, timeDisplay)
+                } else {
+                    timeDisplay
+                }
+            }
+            else -> timeDisplay
+        }
+
+        player.sendActionBar(actionBar)
+    }
+
+    /**
+     * Sends an action bar update to a player based on game state. Contains more information than usual.
+     */
+    fun sendDetailedActionBar(
+        player: Player,
+        gameState: String,
+        timeLeft: Int,
+        score: Int,
+        assignedMaterial: Material? = null,
+        timeModifier: Int? = null
+    ) {
+        var timeDisplay = formatTime(timeLeft)
+        if (timeModifier != null && timeModifier != 0) {
+            val op = if (timeModifier > 0) "+" else ""
+            val color = if (timeModifier > 0) NamedTextColor.GREEN else NamedTextColor.RED
+            val delta = Component.text(" ($op${timeModifier}s)", color)
+            timeDisplay = append(timeDisplay, delta)
+        }
+
+        val actionBar: Component = when (gameState) {
+            "PAUSED" -> append(darkRed("PAUSED"), darkGray(" | "), timeDisplay)
+            "PREPARE" -> append(gray("Assigning blocks in: "), timeDisplay)
+            "INGAME" -> {
+                if (assignedMaterial != null) {
+                    val name = capitalizeFully(
+                        assignedMaterial.name.lowercase(Locale.getDefault()).replace("_", " ")
+                    )
+                    val matPart = append(gray("Stand on: "), TextUtils.blockWithDifficulty(name, blockManager.getBlockDifficulty(
+                        assignedMaterial
+                    )), gray(" | "))
+                    val score = append(gray(" | "), Component.text("\uD83C\uDFC6$score", NamedTextColor.YELLOW))
+                    append(matPart, timeDisplay, score)
                 } else {
                     timeDisplay
                 }
@@ -304,6 +358,7 @@ class GameMessenger(private val blockManager: BlockManager) {
         )
 
         return when {
+            min >= 5 -> Component.text(String.format("%02d:%02d", min, sec), NamedTextColor.AQUA)
             min > 0 -> Component.text(String.format("%02d:%02d", min, sec), NamedTextColor.GREEN)
             sec >= 45 -> Component.text(String.format("%02d.%01ds", sec, ms / 100), NamedTextColor.YELLOW)
             sec >= 30 -> Component.text(String.format("%02d.%01ds", sec, ms / 100), NamedTextColor.GOLD)

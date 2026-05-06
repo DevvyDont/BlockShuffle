@@ -1,5 +1,7 @@
 ﻿package me.devvy.blockshuffle.service.gamemode
 
+import me.devvy.blockshuffle.config.GameConfig
+import net.minecraft.util.Tuple
 import org.bukkit.entity.Player
 import java.util.*
 
@@ -14,11 +16,15 @@ class PlayerTimerManager(
 
     private val playerTimers: MutableMap<UUID, Int> = HashMap()
 
+    // Keeps track of +/- to display in timers when adding/subtracing time.
+    // First element of tuple is the delta, the second element is expiry time (when to stop showing it/reset counter)
+    private val playerTimerDeltas = mutableMapOf<UUID, Tuple<Int, Long>>()
+
     /**
      * Initializes a player's timer with the starting time.
      */
     fun initializePlayer(player: Player) {
-        playerTimers[player.uniqueId] = startingTimeSeconds * 10  // Convert to ticks (10 ticks = 1 second)
+        playerTimers[player.uniqueId] = startingTimeSeconds * GameConfig.TASK_FREQUENCY  // Convert to ticks (10 ticks = 1 second)
     }
 
     /**
@@ -32,7 +38,7 @@ class PlayerTimerManager(
      * Gets the remaining time for a player in seconds.
      */
     fun getTimeRemainingSeconds(player: Player): Int {
-        return getTimeRemainingTicks(player) / 10
+        return getTimeRemainingTicks(player) / GameConfig.TASK_FREQUENCY
     }
 
     /**
@@ -40,11 +46,23 @@ class PlayerTimerManager(
      */
     fun tickTimer(player: Player): Boolean {
         val uuid = player.uniqueId
+
+        val deltaPair = playerTimerDeltas[uuid]
+        if (deltaPair != null) {
+
+            // Check if expired delta. If so, remove it.
+            val expiry = deltaPair.b
+            if (expiry < System.currentTimeMillis())
+                playerTimerDeltas.remove(uuid)
+
+        }
+
         if (!playerTimers.containsKey(uuid)) return false
 
         val currentTime = playerTimers[uuid]!!
         if (currentTime <= 1) {
             playerTimers[uuid] = 0
+            playerTimerDeltas.remove(uuid)
             return true
         }
 
@@ -57,9 +75,12 @@ class PlayerTimerManager(
      */
     fun addTime(player: Player, timeSeconds: Int) {
         val uuid = player.uniqueId
-        if (!playerTimers.containsKey(uuid)) return
+        if (!playerTimers.containsKey(uuid))
+            return
 
         playerTimers[uuid] = playerTimers[uuid]!! + (timeSeconds * 10)
+        val newDelta = if (playerTimerDeltas.containsKey(uuid)) playerTimerDeltas[uuid]!!.a + timeSeconds else timeSeconds
+        playerTimerDeltas[uuid] = Tuple(newDelta, System.currentTimeMillis() + 5000)
     }
 
     /**
@@ -69,8 +90,10 @@ class PlayerTimerManager(
         val uuid = player.uniqueId
         if (!playerTimers.containsKey(uuid)) return
 
-        val newTime = playerTimers[uuid]!! - (timeSeconds * 10)
+        val newTime = playerTimers[uuid]!! - (timeSeconds * GameConfig.TASK_FREQUENCY)
         playerTimers[uuid] = maxOf(0, newTime)
+        val newDelta = if (playerTimerDeltas.containsKey(uuid)) playerTimerDeltas[uuid]!!.a - timeSeconds else -timeSeconds
+        playerTimerDeltas[uuid] = Tuple(newDelta, System.currentTimeMillis() + 5000)
     }
 
     /**
@@ -85,6 +108,7 @@ class PlayerTimerManager(
      */
     fun removePlayer(player: Player) {
         playerTimers.remove(player.uniqueId)
+        playerTimerDeltas.remove(player.uniqueId)
     }
 
     /**
@@ -99,6 +123,7 @@ class PlayerTimerManager(
      */
     fun clear() {
         playerTimers.clear()
+        playerTimerDeltas.clear()
     }
 
     /**
@@ -106,6 +131,16 @@ class PlayerTimerManager(
      */
     fun getTimePerBlock(): Int {
         return timeAddedPerBlockSeconds
+    }
+
+    /**
+     * Gets the current time delta for the player. Used for display purposes only.
+     * Returns null if no current delta.
+     */
+    fun getCurrentTimeDelta(player: Player): Int? {
+        val uuid = player.uniqueId
+        val deltas = playerTimerDeltas[uuid] ?: return null
+        return deltas.a
     }
 }
 

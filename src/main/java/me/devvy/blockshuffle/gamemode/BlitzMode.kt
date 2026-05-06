@@ -16,9 +16,9 @@ import org.bukkit.Sound
 import org.bukkit.block.BlockFace
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
-import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerMoveEvent
@@ -32,14 +32,18 @@ import java.util.*
  */
 class BlitzMode(
     private val plugin: JavaPlugin,
-    private val blockManager: BlockManager,
-    private val startingTimeSeconds: Int = 120,
-    private val timePerBlockSeconds: Int = 30,
-    private val damageToTimeRatio: Double = 1.0
+    private val blockManager: BlockManager
 ) : GameMode, Listener {
 
-    private val timerManager = PlayerTimerManager(startingTimeSeconds, timePerBlockSeconds)
-    private val healthManager = PlayerHealthManager(plugin, timerManager, damageToTimeRatio)
+    private val timerManager = PlayerTimerManager(
+        GameConfig.BLITZ_STARTING_TIME_SECONDS,
+        GameConfig.BLITZ_TIME_PER_BLOCK_SECONDS
+    )
+    private val healthManager = PlayerHealthManager(
+        plugin,
+        timerManager,
+        GameConfig.BLITZ_DAMAGE_TO_TIME_RATIO
+    )
     private val messenger = GameMessenger(blockManager)
     private val worldManager = WorldManager()
 
@@ -50,16 +54,17 @@ class BlitzMode(
     private var isPaused = false
     private var gameStarted = false
     private var isGameOver = false
-    private var lastRound = 0
 
     override fun initialize() {
         // Register damage/death listener
         plugin.server.pluginManager.registerEvents(this, plugin)
-        plugin.server.pluginManager.registerEvents(healthManager, plugin)
+        healthManager.register()
 
         for (player in Bukkit.getOnlinePlayers()) {
             timerManager.initializePlayer(player)
             playerScores[player.uniqueId] = 0
+            // Assign initial block to each player
+            assignBlockToPlayer(player)
         }
 
         gameStarted = true
@@ -75,7 +80,7 @@ class BlitzMode(
         // Tick all player timers, eliminate those who expire
         for (uuid in timerManager.getTrackedPlayers().toList()) {
             val player = Bukkit.getPlayer(uuid) ?: continue
-
+            healthManager.setPlayerHealth(player, GameConfig.BLITZ_STARTING_TIME_SECONDS)
             if (timerManager.tickTimer(player)) {
                 eliminatePlayer(player, "TIME_EXPIRED")
             }
@@ -107,7 +112,7 @@ class BlitzMode(
             messenger.showBlockFoundTitle(player)
 
             // Add time bonus
-            val bonus = timerManager.getTimePerBlock()
+            val bonus = timerManager.getTimePerBlock() + blockManager.getBlockDifficulty(assignedBlock) * GameConfig.BLITZ_TIME_BONUS_PER_DIFFICULTY
             timerManager.addTime(player, bonus)
 
             // Increase score
@@ -162,35 +167,6 @@ class BlitzMode(
     }
 
     @EventHandler
-    fun onEntityDamage(event: EntityDamageEvent) {
-        if (event.entity !is Player) return
-        val player = event.entity as Player
-
-        if (!timerManager.getTrackedPlayers().contains(player.uniqueId)) return
-        if (eliminatedPlayers.contains(player.uniqueId)) return
-
-        val timeLostSeconds = (event.damage * damageToTimeRatio).toInt()
-        timerManager.subtractTime(player, timeLostSeconds)
-
-        // Send feedback to player
-        val timeRemaining = timerManager.getTimeRemainingSeconds(player)
-        player.sendMessage(
-            Component.text()
-                .append(Component.text("⚠ ", NamedTextColor.RED))
-                .append(Component.text("Took damage! -$timeLostSeconds seconds.", NamedTextColor.YELLOW))
-                .append(Component.text(" Time left: ${timeRemaining}s", NamedTextColor.AQUA))
-                .build()
-        )
-
-        // If time expired, eliminate
-        if (timerManager.isTimeExpired(player)) {
-            event.isCancelled = true
-            player.health = 20.0
-            eliminatePlayer(player, "TIME_OUT_FROM_DAMAGE")
-        }
-    }
-
-    @EventHandler
     fun onPlayerDeath(event: PlayerDeathEvent) {
         if (eliminatedPlayers.contains(event.entity.uniqueId)) return
         // Will be handled by eliminatePlayer
@@ -201,6 +177,7 @@ class BlitzMode(
         gameStarted = false
         isGameOver = true
         HandlerList.unregisterAll(this)
+        healthManager.unregister()
         worldManager.resetAllPlayersAfterGame(messenger)
         timerManager.clear()
     }
@@ -221,38 +198,18 @@ class BlitzMode(
      * Displays each player's remaining time in the action bar.
      */
     private fun displayPlayerTimers() {
+        val state = if (isPaused) "PAUSED" else "INGAME"
         for (player in Bukkit.getOnlinePlayers()) {
-            if (eliminatedPlayers.contains(player.uniqueId)) continue
+            if (eliminatedPlayers.contains(player.uniqueId))
+                continue
 
-            val timeRemaining = timerManager.getTimeRemainingSeconds(player)
+            val timeRemaining = timerManager.getTimeRemainingTicks(player)
             val blockMaterial = assignedBlocks[player.uniqueId]?.first
 
-            // Simple action bar display of time
-            val timerColor = when {
-                timeRemaining <= 3 -> NamedTextColor.RED
-                timeRemaining <= 10 -> NamedTextColor.YELLOW
-                else -> NamedTextColor.GREEN
-            }
-
-            val blockName = blockMaterial?.name?.replace("_", " ") ?: "NONE"
-
-            player.sendActionBar(
-                Component.text()
-                    .append(Component.text("⏱ $timeRemaining", timerColor))
-                    .append(Component.text(" | ", NamedTextColor.GRAY))
-                    .append(Component.text("Blocks: ${playerScores[player.uniqueId] ?: 0}", NamedTextColor.AQUA))
-                    .append(Component.text(" | ", NamedTextColor.GRAY))
-                    .append(Component.text("Find: $blockName", NamedTextColor.GOLD))
-                    .build()
-            )
-
+            val score = playerScores[player.uniqueId] ?: 0
+            messenger.sendDetailedActionBar(player, state, timeRemaining, score, blockMaterial, timeModifier = timerManager.getCurrentTimeDelta(player))
             // Play warning sounds
-            if (timeRemaining <= 3 && timerManager.getTimeRemainingTicks(player) % 10 == 0) {
-                val pitch = 1.8f - timeRemaining * 0.15f
-                messenger.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, pitch)
-            } else if (timeRemaining <= 10 && timerManager.getTimeRemainingTicks(player) % 10 == 0) {
-                messenger.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.75f)
-            }
+            messenger.playTimerWarningSfx(player, timerManager.getTimeRemainingTicks(player))
         }
     }
 
@@ -262,7 +219,7 @@ class BlitzMode(
     private fun assignBlockToPlayer(player: Player) {
         // Use round-based difficulty progression (estimate round based on score)
         val round = (playerScores[player.uniqueId] ?: 0) / 2  // Every 2 blocks found increases difficulty
-        val material = blockManager.getRandomBlockForRound(round) ?: return
+        val material = blockManager.getRandomBlockForRound(round)
 
         assignedBlocks[player.uniqueId] = Pair(material, System.currentTimeMillis())
 
@@ -324,6 +281,3 @@ class BlitzMode(
         cleanup()
     }
 }
-
-
-

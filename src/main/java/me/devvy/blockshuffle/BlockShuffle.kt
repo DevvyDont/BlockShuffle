@@ -3,6 +3,7 @@ package me.devvy.blockshuffle
 import me.devvy.blockshuffle.command.CommandHandler
 import me.devvy.blockshuffle.config.ConfigManager
 import me.devvy.blockshuffle.config.GameConfig
+import me.devvy.blockshuffle.gamemode.BlitzMode
 import me.devvy.blockshuffle.gamemode.ClassicMode
 import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.GameMessenger
@@ -49,7 +50,7 @@ class BlockShuffle : JavaPlugin(), Listener {
         worldManager.initializeAllPlayersForGame(messenger)
 
         // Create and start ClassicMode
-        val gameMode = ClassicMode(blockManager)
+        val gameMode = BlitzMode(this, blockManager)
         gameTask = GameLoop(gameMode)
         gameTask!!.runTaskTimer(this, 0, GameConfig.TASK_TICK_PERIOD)
         server.pluginManager.registerEvents(gameTask!!, this)

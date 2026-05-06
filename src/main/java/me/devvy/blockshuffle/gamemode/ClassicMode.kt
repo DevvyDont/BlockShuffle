@@ -1,6 +1,5 @@
 ﻿package me.devvy.blockshuffle.gamemode
 
-import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.GameMessenger
@@ -14,7 +13,6 @@ import org.bukkit.Sound
 import org.bukkit.block.BlockFace
 import org.bukkit.entity.Player
 import org.bukkit.event.player.PlayerJoinEvent
-import org.bukkit.event.player.PlayerMoveEvent
 
 /**
  * Classic Block Shuffle mode: Global timer, synchronized rounds.
@@ -148,20 +146,9 @@ class ClassicMode(
 
         for (player in Bukkit.getOnlinePlayers()) {
             val assignedMat = roundManager.getAssignedBlock(player)
-            messenger.sendActionBar(player, state, timerTicks, assignedMat)
-
+            messenger.sendSimpleActionBar(player, state, timerTicks, assignedMat)
             // Play timer sounds
-            val simpleSecondsLeft = (timerTicks.toDouble() / GameConfig.TASK_FREQUENCY).toInt()
-            if ((simpleSecondsLeft == 30 || simpleSecondsLeft == 60) && timerTicks % GameConfig.TASK_FREQUENCY == 0) {
-                messenger.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.5f)
-            } else if (simpleSecondsLeft <= 3 && timerTicks % GameConfig.TASK_FREQUENCY == 0) {
-                val pitch = 1.8f - simpleSecondsLeft * 0.15f
-                messenger.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, pitch)
-            } else if (simpleSecondsLeft <= 5 && timerTicks % GameConfig.TASK_FREQUENCY == 0) {
-                messenger.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1f)
-            } else if (simpleSecondsLeft <= 10 && timerTicks % GameConfig.TASK_FREQUENCY == 0) {
-                messenger.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.75f)
-            }
+            messenger.playTimerWarningSfx(player, timerTicks)
         }
     }
 
