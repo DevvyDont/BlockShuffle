@@ -40,10 +40,21 @@ class BlockSelectionMenu(
     private var filter: TriState = TriState.DEFAULT // Filter between default, enabled blocks, disabled blocks
     private var difficultyFilter: Int = 0 // 0 = all, 1-5 = specific difficulty
 
+    // If true, we need to rebuild the blocks to display list. Otherwise we can reuse it.
+    private var blockDisplayDirty = true
+    private var blocksToShow = getBlocksToDisplay()
+    private var blockConfigs = blockManager.getAllBlockConfigs()
+
     init {
         registerListeners()
         render()
         player.openInventory(inventory)
+    }
+
+    private fun getOrUpdateBlocksToDisplay(): List<Material> {
+        if (!blockDisplayDirty)
+            return allBlocks
+        return getBlocksToDisplay()
     }
 
     private fun getBlocksToDisplay(): List<Material> {
@@ -53,10 +64,12 @@ class BlockSelectionMenu(
         else if (filter == TriState.FALSE)
             blocksToShow = blockManager.getDisabledBlocks()
 
+        blockConfigs = blockManager.getAllBlockConfigs()
         if (difficultyFilter > 0) {
-            blocksToShow = blocksToShow.filter { blockManager.getBlockDifficulty(it) == difficultyFilter }
+            blocksToShow = blocksToShow.filter { blockConfigs[it]?.difficulty == difficultyFilter }
         }
 
+        blockDisplayDirty = false
         return blocksToShow
     }
 
@@ -67,7 +80,7 @@ class BlockSelectionMenu(
         for (i in inventory.size-9 until inventory.size)
             inventory.setItem(i, ItemStack(Material.BLACK_STAINED_GLASS_PANE))
 
-        val blocksToShow: List<Material> = getBlocksToDisplay()
+        val blocksToShow: List<Material> = getOrUpdateBlocksToDisplay()
         inventory.setItem(46, createFilterButton())
         inventory.setItem(47, createDifficultyFilterButton())
 
@@ -113,8 +126,9 @@ class BlockSelectionMenu(
      * Creates an item representing a block with its properties and toggle state.
      */
     private fun createBlockItem(material: Material): ItemStack {
-        val isEnabled = blockManager.isBlockEnabled(material)
-        val difficulty = blockManager.getBlockDifficulty(material)
+        val cfg = blockConfigs[material]
+        val isEnabled = cfg?.enabled ?: false
+        val difficulty = cfg?.difficulty ?: 1
         val displayName = BlockValidator.getMaterialDisplayName(material)
 
         val item = ItemStack(material)
@@ -196,7 +210,7 @@ class BlockSelectionMenu(
             .decoration(TextDecoration.ITALIC, true))
 
         lore.add(Component.empty())
-        val totalPages = (getBlocksToDisplay().size + blocksPerPage - 1) / blocksPerPage
+        val totalPages = (getOrUpdateBlocksToDisplay().size + blocksPerPage - 1) / blocksPerPage
         lore.add(Component.text("Page ${currentPage + 1} / $totalPages", NamedTextColor.YELLOW))
 
         meta.lore(lore)
@@ -252,14 +266,14 @@ class BlockSelectionMenu(
         lore.add(Component.text("Total Blocks: ", NamedTextColor.GRAY)
             .append(Component.text(allBlocks.size.toString(), NamedTextColor.GREEN)))
 
-        val enabledCount = allBlocks.count { blockManager.isBlockEnabled(it) }
+        val enabledCount = allBlocks.count { blockConfigs[it]?.enabled == true }
         lore.add(Component.text("Enabled: ", NamedTextColor.GRAY)
             .append(Component.text(enabledCount.toString(), NamedTextColor.GREEN)))
 
         lore.add(Component.empty())
         lore.add(Component.text("Difficulty Distribution:", NamedTextColor.GOLD).decoration(TextDecoration.BOLD, true))
         for (diff in 1..5) {
-            val count = allBlocks.count { blockManager.getBlockDifficulty(it) == diff && blockManager.isBlockEnabled(it) }
+            val count = allBlocks.count { blockConfigs[it]?.difficulty == diff && blockConfigs[it]?.enabled == true }
             val stars = "★".repeat(diff) + "☆".repeat(5 - diff)
             lore.add(Component.text("$stars: $count", NamedTextColor.YELLOW))
         }
@@ -315,6 +329,7 @@ class BlockSelectionMenu(
                     TriState.TRUE -> TriState.FALSE
                     TriState.FALSE -> TriState.DEFAULT
                 }
+                blockDisplayDirty = true
                 currentPage = 0
                 render()
                 player.playSound(player.location, Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f)
@@ -322,12 +337,13 @@ class BlockSelectionMenu(
             47 -> {
                 difficultyFilter = (difficultyFilter + 1) % 6 // 0 to 5
                 currentPage = 0
+                blockDisplayDirty = true
                 render()
                 player.playSound(player.location, Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f)
             }
             53 -> {
                 // Next page button
-                val totalPages = (getBlocksToDisplay().size + blocksPerPage - 1) / blocksPerPage
+                val totalPages = (getOrUpdateBlocksToDisplay().size + blocksPerPage - 1) / blocksPerPage
                 if (currentPage + 1 < totalPages) {
                     currentPage++
                     render()
@@ -344,9 +360,10 @@ class BlockSelectionMenu(
                     val clickedItem = inventory.getItem(slot) ?: return
                     val material = clickedItem.type
 
+                    blockDisplayDirty = true
                     if (event.click == ClickType.RIGHT) {
                         // Cycle difficulty
-                        val currentDifficulty = blockManager.getBlockDifficulty(material)
+                        val currentDifficulty = blockConfigs[material]?.difficulty ?: 1
                         val newDifficulty = (currentDifficulty % 5) + 1
                         blockManager.setBlockDifficulty(material, newDifficulty)
                         player.sendMessage(
@@ -358,14 +375,15 @@ class BlockSelectionMenu(
                         player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f)
                     } else {
                         // Toggle enabled/disabled
+                        val oldState = blockConfigs[material]?.enabled ?: false
                         blockManager.toggleBlock(material)
                         player.sendMessage(
                             Component.text()
                                 .append(Component.text("${BlockValidator.getMaterialDisplayName(material)}: ", NamedTextColor.GOLD))
                                 .append(
                                     Component.text(
-                                        if (blockManager.isBlockEnabled(material)) "ENABLED" else "DISABLED",
-                                        if (blockManager.isBlockEnabled(material)) NamedTextColor.GREEN else NamedTextColor.RED
+                                        if (!oldState) "ENABLED" else "DISABLED",
+                                        if (!oldState) NamedTextColor.GREEN else NamedTextColor.RED
                                     )
                                 )
                                 .build()
