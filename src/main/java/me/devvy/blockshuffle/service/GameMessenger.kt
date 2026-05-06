@@ -86,14 +86,7 @@ class GameMessenger(private val blockManager: BlockManager) {
         assignedMaterial: Material? = null,
         timeModifier: Int? = null
     ) {
-        var timeDisplay = formatTime(timeLeft)
-        if (timeModifier != null && timeModifier != 0) {
-            val op = if (timeModifier > 0) "+" else ""
-            val color = if (timeModifier > 0) NamedTextColor.GREEN else NamedTextColor.RED
-            val delta = Component.text(" ($op${timeModifier}s)", color)
-            timeDisplay = append(timeDisplay, delta)
-        }
-
+        val timeDisplay = formatTime(timeLeft, timeModifier)
         val actionBar: Component = when (gameState) {
             "PAUSED" -> append(darkRed("PAUSED"), darkGray(" | "), timeDisplay)
             "PREPARE" -> append(gray("Assigning blocks in: "), timeDisplay)
@@ -186,7 +179,7 @@ class GameMessenger(private val blockManager: BlockManager) {
         player.showTitle(
             Title.title(
                 Component.text("Safe!", NamedTextColor.GREEN),
-                Component.text("You're in the next round!", NamedTextColor.GRAY),
+                Component.text("+1 point!!!", NamedTextColor.GRAY),
                 Title.Times.times(
                     Duration.ofMillis(GameConfig.TITLE_FADE_IN_MS),
                     Duration.ofMillis(GameConfig.TITLE_STAY_MS),
@@ -220,7 +213,7 @@ class GameMessenger(private val blockManager: BlockManager) {
         // First round display (initial one)
         player.showTitle(Title.title(
             Component.text("Block Shuffle!", NamedTextColor.LIGHT_PURPLE),
-            Component.text("Blocks will be assigned shortly...", NamedTextColor.GRAY),
+            Component.text("Stand on your block to save yourself!", NamedTextColor.GRAY),
         ))
 
     }
@@ -344,7 +337,7 @@ class GameMessenger(private val blockManager: BlockManager) {
     /**
      * Formats time remaining for display.
      */
-    fun formatTime(timerTicks: Int): Component {
+    fun formatTime(timerTicks: Int, timeModifier: Int? = null): Component {
         val rawSeconds = timerTicks.toDouble() / GameConfig.TASK_FREQUENCY
         val millis = (rawSeconds * 1000).toLong()
 
@@ -357,7 +350,7 @@ class GameMessenger(private val blockManager: BlockManager) {
             millis - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min) - TimeUnit.SECONDS.toMillis(sec)
         )
 
-        return when {
+        val timer =  when {
             min >= 5 -> Component.text(String.format("%02d:%02d", min, sec), NamedTextColor.AQUA)
             min > 0 -> Component.text(String.format("%02d:%02d", min, sec), NamedTextColor.GREEN)
             sec >= 45 -> Component.text(String.format("%02d.%01ds", sec, ms / 100), NamedTextColor.YELLOW)
@@ -369,6 +362,14 @@ class GameMessenger(private val blockManager: BlockManager) {
                 TextDecoration.BOLD
             )
         }
+
+        var delta = Component.empty()
+        if (timeModifier != null && timeModifier != 0) {
+            val op = if (timeModifier > 0) "+" else ""
+            val color = if (timeModifier > 0) NamedTextColor.GREEN else NamedTextColor.RED
+            delta = Component.text(" ($op${timeModifier}s)", color)
+        }
+        return append(timer, delta)
     }
 
     /**

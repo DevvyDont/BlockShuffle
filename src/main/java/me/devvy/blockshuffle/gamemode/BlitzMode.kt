@@ -1,12 +1,13 @@
 ﻿package me.devvy.blockshuffle.gamemode
 
-import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.WorldManager
 import me.devvy.blockshuffle.service.gamemode.PlayerHealthManager
 import me.devvy.blockshuffle.service.gamemode.PlayerTimerManager
+import me.devvy.blockshuffle.util.SimpleGlobalScoreboard
+import me.devvy.blockshuffle.util.TextUtils.append
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
@@ -16,7 +17,6 @@ import org.bukkit.Sound
 import org.bukkit.block.BlockFace
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
-import org.bukkit.event.EventPriority
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
@@ -55,25 +55,72 @@ class BlitzMode(
     private var gameStarted = false
     private var isGameOver = false
 
+    private var scoreboard: SimpleGlobalScoreboard? = null
+
     override fun initialize() {
         // Register damage/death listener
         plugin.server.pluginManager.registerEvents(this, plugin)
         healthManager.register()
+
+        if (scoreboard != null)
+            scoreboard!!.cleanup()
+        scoreboard = SimpleGlobalScoreboard(Bukkit.getScoreboardManager().mainScoreboard, Component.text("Blitz Shuffle", NamedTextColor.LIGHT_PURPLE))
 
         for (player in Bukkit.getOnlinePlayers()) {
             timerManager.initializePlayer(player)
             playerScores[player.uniqueId] = 0
             // Assign initial block to each player
             assignBlockToPlayer(player)
+            scoreboard!!.display(player)
         }
 
         gameStarted = true
+    }
+
+    private fun updateScoreboard() {
+
+        val lines = mutableListOf<Component>()
+        val alive = timerManager.getTrackedPlayers().toMutableList()
+        val eliminated = eliminatedPlayers.toMutableList()
+        alive.sortBy { p -> playerScores[p] ?: 0 }
+        eliminated.sortBy { p -> playerScores[p] ?: 0 }
+
+        for (id in alive.reversed()) {
+            val player = Bukkit.getPlayer(id) ?: continue
+            val score = playerScores[id] ?: 0
+            lines.add(append(
+                Component.text("\uD83C\uDFC6$score ").color(NamedTextColor.YELLOW),
+                player.name().color(NamedTextColor.GRAY),
+                Component.space(),
+                messenger.formatTime(timerManager.getTimeRemainingTicks(player), timerManager.getCurrentTimeDelta(player))
+            ))
+        }
+
+        for (id in eliminated.reversed()) {
+            val player = Bukkit.getPlayer(id) ?: continue
+            val score = playerScores[id] ?: 0
+            lines.add(append(
+                Component.text("\uD83C\uDFC6$score ").color(NamedTextColor.YELLOW),
+                player.name().color(NamedTextColor.DARK_GRAY),
+                Component.space(),
+                Component.text("☠☠☠", NamedTextColor.DARK_RED)
+            ))
+        }
+
+        scoreboard?.setLines(lines)
+
+    }
+
+    private fun getTopScorers(): Set<UUID> {
+        val max = playerScores.values.maxOrNull()
+        return playerScores.filterValues { it == max }.keys
     }
 
     override fun tick() {
         if (!gameStarted) return
 
         displayPlayerTimers()
+        updateScoreboard()
 
         if (isPaused) return
 
@@ -86,13 +133,27 @@ class BlitzMode(
             }
         }
 
-        // Check win condition: only one player left
+        // Check win condition: one player is left and they are top scorer.
         val activePlayers = Bukkit.getOnlinePlayers().filter { !eliminatedPlayers.contains(it.uniqueId) }
+        if (activePlayers.size > 1)
+            return
+
+        // No players? End the game depending on how many people are in 1st place.
         if (activePlayers.isEmpty()) {
-            handleGameOverDraw()
-        } else if (activePlayers.size == 1) {
-            handleGameOverWinner(activePlayers[0])
+            val top = getTopScorers()
+            val winner = Bukkit.getPlayer(top.first())
+            if (top.size == 1 && winner != null)
+                handleGameOverWinner(winner)
+            else
+                handleGameOverDraw()
+            return
         }
+
+        val alonePlayer = activePlayers.first()
+        // One player is left. Are they in the top scorers? If so, end the game only if more players are online.
+        val top = getTopScorers()
+        if (top.size == 1 && top.contains(alonePlayer.uniqueId) && Bukkit.getOnlinePlayers().size > 1)
+            handleGameOverWinner(alonePlayer)
     }
 
     override fun onPlayerMove(player: Player, location: Location) {
@@ -108,7 +169,6 @@ class BlitzMode(
         if (blockBelow == assignedBlock) {
             // Block found!
             messenger.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1.0f)
-            messenger.broadcastBlockFound(player)
             messenger.showBlockFoundTitle(player)
 
             // Add time bonus
@@ -126,7 +186,7 @@ class BlitzMode(
                 other.sendMessage(
                     Component.text()
                         .append(Component.text(player.name, NamedTextColor.AQUA))
-                        .append(Component.text(" found a block! +$bonus seconds", NamedTextColor.GREEN))
+                        .append(Component.text(" found a block! +$bonus seconds!", NamedTextColor.GREEN))
                         .build()
                 )
             }
@@ -180,6 +240,8 @@ class BlitzMode(
         healthManager.unregister()
         worldManager.resetAllPlayersAfterGame(messenger)
         timerManager.clear()
+        scoreboard?.cleanup()
+        scoreboard = null
     }
 
     override fun isPaused(): Boolean {
