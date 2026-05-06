@@ -10,6 +10,20 @@ import org.bukkit.block.BlockSupport
  */
 object BlockValidator {
 
+    // Global cache of blocks we consider to be invalidated. Used to speed up UI rendering.
+    val BLACKLIST_CACHE = mutableSetOf<Material>()
+    var cacheBuilt = false
+
+    init {
+        // Pre-populate blacklist cache with known invalid blocks to speed up checks
+        for (material in Material.entries) {
+            if (!isValidGameBlock(material)) {
+                BLACKLIST_CACHE.add(material)
+            }
+        }
+        cacheBuilt = true
+    }
+
     /**
      * Determines if a material is valid for Block Shuffle gameplay.
      * A block is valid if it:
@@ -21,29 +35,30 @@ object BlockValidator {
      */
     fun isValidGameBlock(material: Material): Boolean {
 
+        if (cacheBuilt)
+            return !BLACKLIST_CACHE.contains(material)
+
         if (material.isLegacy) return false
 
         // Exclude non-block materials
         if (!material.isBlock) return false
 
-        // Exclude liquids and gases
-        if (material.isOccluding.not()) return false
-
-        // Exclude air and barrier blocks
-        if (material == Material.AIR || material == Material.BARRIER || material == Material.CAVE_AIR || material == Material.VOID_AIR) {
-            return false
-        }
-
-        // Exclude fluids
-        if (material == Material.LAVA || material == Material.WATER) {
-            return false
+        // Exclude manually blacklisted blocks that would cause issues
+        when (material) {
+            Material.AIR -> return false
+            Material.BARRIER -> return false
+            Material.CAVE_AIR -> return false
+            Material.VOID_AIR -> return false
+            else -> {}
         }
 
         // Exclude blocks that cannot be placed
-        if (!canBePlaced(material)) return false
+        if (!canBePlaced(material))
+            return false
 
         // Exclude blocks that are too decorative or unsafe
-        if (isExcludedDecorative(material)) return false
+        if (isExcludedDecorative(material))
+            return false
 
         return true
     }
@@ -63,6 +78,7 @@ object BlockValidator {
             "command_block",
             "repeating_command_block",
             "chain_command_block",
+            "resin_clump",
             "spawner",
             "head",    // Skulls require entity/NBT data
             "infested" // Silverfish blocks
@@ -79,6 +95,15 @@ object BlockValidator {
         val excludedPatterns = listOf(
             "candle",           // Too small/decorative
             "glow_lichen",      // Decorative vegetation
+            "bamboo_sapling",   // Decorative vegetation
+            "beetroots",        // Decorative vegetation
+            "carrots",          // Decorative vegetation
+            "potatoes",         // Decorative vegetation
+            "potted",           // Decorative vegetation
+            "crop",             // Decorative vegetation
+            "bush",             // Decorative vegetation
+            "cocoa",            // Decorative vegetation
+            "stem",             // Decorative vegetation
             "vine",             // Players would fall through
             "kelp",             // Underwater plant
             "seagrass",         // Underwater plant
@@ -86,15 +111,31 @@ object BlockValidator {
             "coral_block",      // Underwater decoration
             "dead_coral",       // Underwater decoration
             "sea_lantern",      // Underwater decoration
+            "bubble",           // Underwater decoration
             "lamp",             // Decorative lighting
             "lantern",          // Hanging/decorative
+            "banner",           // Hanging/decorative
             "snow",             // Too thin to stand on reliably
             "attached_melon",   // Special block
             "attached_pumpkin", // Special block
+            "test",             // Special block
+            "light",            // Special block
             "mushroom_stem",    // Too fragile
             "nether_wart",      // Crop, too small
             "amethyst_cluster", // Too small
             "conduit",          // Hollow/unsafe
+            "wall_hanging",     // Not an item
+            "wall_sign",        // Not an item
+            "wall_torch",       // Not an item
+            "torch",            // Not an item
+            "gateway",          // Not an item
+            "fire",             // Not an item
+            "frosted_ice",      // Not an item
+            "lava",             // Not an item
+            "water",            // Not an item
+            "moving",           // Not an item
+            "wire",             // Not an item
+            "wall",             // Not an item
         )
 
         return excludedPatterns.any { nameLower.contains(it) }
