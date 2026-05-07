@@ -9,6 +9,7 @@ import org.bukkit.Material
 import org.bukkit.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 
 /**
@@ -68,7 +69,7 @@ class WorldManager {
 
         // Drop all items
         for (item in player.inventory.contents) {
-            if (item != null) {
+            if (item != null && !item.containsEnchantment(Enchantment.VANISHING_CURSE)) {
                 player.world.dropItemNaturally(player.eyeLocation.subtract(0.0, 0.25, 0.0), item)
             }
         }

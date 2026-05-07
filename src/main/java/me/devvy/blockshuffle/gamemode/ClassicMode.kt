@@ -7,6 +7,8 @@ import me.devvy.blockshuffle.service.GameStateManager.GameState
 import me.devvy.blockshuffle.service.RoundManager
 import me.devvy.blockshuffle.service.WorldManager
 import org.bukkit.Bukkit
+import org.bukkit.Difficulty
+import org.bukkit.GameRules
 import org.bukkit.Location
 import org.bukkit.Sound
 import org.bukkit.block.BlockFace
@@ -29,6 +31,11 @@ class ClassicMode : GameMode {
 
     override fun initialize() {
         roundManager.initializeAllPlayers()
+
+        for (world in Bukkit.getWorlds()) {
+            world.difficulty = Difficulty.HARD
+            world.setGameRule(GameRules.NATURAL_HEALTH_REGENERATION, true)
+        }
     }
 
     override fun tick() {

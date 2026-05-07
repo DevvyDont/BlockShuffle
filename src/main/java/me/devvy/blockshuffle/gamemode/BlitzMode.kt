@@ -1,27 +1,35 @@
 ﻿package me.devvy.blockshuffle.gamemode
 
+import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent
 import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.WorldManager
 import me.devvy.blockshuffle.service.gamemode.PlayerHealthManager
 import me.devvy.blockshuffle.service.gamemode.PlayerTimerManager
+import me.devvy.blockshuffle.util.ItemUtils
 import me.devvy.blockshuffle.util.SimpleGlobalScoreboard
 import me.devvy.blockshuffle.util.TextUtils.append
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
+import org.bukkit.Difficulty
+import org.bukkit.GameRules
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.block.BlockFace
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
+import org.bukkit.event.block.Action
 import org.bukkit.event.entity.PlayerDeathEvent
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerMoveEvent
+import org.bukkit.inventory.ItemStack
 import java.util.*
 
 /**
@@ -70,9 +78,28 @@ class BlitzMode(
             // Assign initial block to each player
             assignBlockToPlayer(player)
             scoreboard!!.display(player)
+            setupPlayer(player)
         }
 
         gameStarted = true
+
+        for (world in Bukkit.getWorlds()) {
+            world.difficulty = Difficulty.HARD
+            world.setGameRule(GameRules.NATURAL_HEALTH_REGENERATION, false)
+        }
+    }
+
+    private fun setupPlayer(player: Player) {
+        player.foodLevel = 20
+        player.saturation = 20f
+        player.inventory.clear()
+        player.give(
+            ItemStack.of(Material.GOLDEN_AXE),
+            ItemStack.of(Material.GOLDEN_PICKAXE),
+            ItemStack.of(Material.GOLDEN_SHOVEL),
+            ItemUtils.blitzWings(),
+            ItemUtils.temporalFireworkItem()
+        )
     }
 
     private fun updateScoreboard() {
@@ -219,17 +246,6 @@ class BlitzMode(
         eliminatePlayer(player, "DEATH")
     }
 
-    @EventHandler
-    fun onPlayerMove(event: PlayerMoveEvent) {
-        onPlayerMove(event.player, event.to)
-    }
-
-    @EventHandler
-    fun onPlayerDeath(event: PlayerDeathEvent) {
-        if (eliminatedPlayers.contains(event.entity.uniqueId)) return
-        // Will be handled by eliminatePlayer
-    }
-
     override fun cleanup() {
         isPaused = true
         gameStarted = false
@@ -358,5 +374,45 @@ class BlitzMode(
         }
         messenger.broadcastLeaderboard(playerScores)
         cleanup()
+    }
+
+    @EventHandler
+    fun onPlayerMove(event: PlayerMoveEvent) {
+        onPlayerMove(event.player, event.to)
+    }
+
+    @EventHandler
+    fun onPlayerDeath(event: PlayerDeathEvent) {
+        if (eliminatedPlayers.contains(event.entity.uniqueId)) return
+        // Will be handled by eliminatePlayer
+    }
+
+    @EventHandler
+    fun onUseFirework(event: PlayerElytraBoostEvent) {
+        if (!timerManager.getTrackedPlayers().contains(event.player.uniqueId))
+            return
+
+        val firework = event.itemStack
+        if (!ItemUtils.itemIsCustom(firework, ItemUtils.TEMPORAL_FIREWORK))
+            return
+
+        timerManager.subtractTime(event.player, ItemUtils.FIREWORK_COST)
+        event.player.world.playSound(event.player.location, Sound.ENTITY_ENDERMAN_HURT, 1f, 1.25f)
+        event.setShouldConsume(false)
+    }
+
+    @EventHandler
+    fun onUseFireworkOnGround(event: PlayerInteractEvent) {
+
+        if (event.action != Action.RIGHT_CLICK_BLOCK)
+            return
+
+        val item = event.item ?:
+            return
+
+        if (!ItemUtils.itemIsCustom(item, ItemUtils.TEMPORAL_FIREWORK))
+            return
+
+        event.isCancelled = true
     }
 }
