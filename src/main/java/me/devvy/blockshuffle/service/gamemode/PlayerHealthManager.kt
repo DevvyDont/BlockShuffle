@@ -2,6 +2,7 @@
 
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
+import org.bukkit.Sound
 import org.bukkit.attribute.Attribute
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -66,6 +67,15 @@ class PlayerHealthManager(
             return
 
         timerManager.subtractTime(player, timeLostSeconds)
+
+        // If another player caused this then give them the time
+        if (event.damageSource.causingEntity is Player) {
+            val damager = event.damageSource.causingEntity as Player
+            if (damager.uniqueId != player.uniqueId) {
+                timerManager.addTime(damager, timeLostSeconds)
+                damager.playSound(damager.location, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1f)
+            }
+        }
     }
 
     /**

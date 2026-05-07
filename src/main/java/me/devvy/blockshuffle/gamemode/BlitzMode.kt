@@ -19,6 +19,8 @@ import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.block.BlockFace
+import org.bukkit.damage.DamageSource
+import org.bukkit.damage.DamageType
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -382,12 +384,6 @@ class BlitzMode(
     }
 
     @EventHandler
-    fun onPlayerDeath(event: PlayerDeathEvent) {
-        if (eliminatedPlayers.contains(event.entity.uniqueId)) return
-        // Will be handled by eliminatePlayer
-    }
-
-    @EventHandler
     fun onUseFirework(event: PlayerElytraBoostEvent) {
         if (!timerManager.getTrackedPlayers().contains(event.player.uniqueId))
             return
@@ -396,7 +392,7 @@ class BlitzMode(
         if (!ItemUtils.itemIsCustom(firework, ItemUtils.TEMPORAL_FIREWORK))
             return
 
-        timerManager.subtractTime(event.player, ItemUtils.FIREWORK_COST)
+        event.player.damage(ItemUtils.FIREWORK_COST.toDouble(), DamageSource.builder(DamageType.OUT_OF_WORLD).build())
         event.player.world.playSound(event.player.location, Sound.ENTITY_ENDERMAN_HURT, 1f, 1.25f)
         event.setShouldConsume(false)
     }
