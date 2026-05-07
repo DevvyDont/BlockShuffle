@@ -4,13 +4,9 @@ import com.mojang.brigadier.tree.LiteralCommandNode
 import io.papermc.paper.command.brigadier.CommandSourceStack
 import io.papermc.paper.command.brigadier.Commands
 import me.devvy.blockshuffle.BlockShuffle
-import me.devvy.blockshuffle.config.ConfigManager
-import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.util.BlockValidator
 import org.bukkit.Material
-import org.bukkit.block.Block
 import java.io.File
-import kotlin.io.path.Path
 
 class DumpBlocksCommand : ICommand {
 
@@ -36,8 +32,7 @@ class DumpBlocksCommand : ICommand {
                     file.appendText("${m.name}\n")
                 sender.sendMessage("Dumping ${valid.size} valid blocks to blocks_dump.txt...")
 
-                val pl = BlockShuffle.getInstance()
-                val bm = BlockManager(pl, ConfigManager(pl))
+                val bm = BlockShuffle.getInstance().blockManager
 
                 val registered = bm.getAllValidGameBlocks()
                 val leftover = registered.subtract(valid.toSet())

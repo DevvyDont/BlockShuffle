@@ -10,8 +10,6 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents
 import me.devvy.blockshuffle.command.BlockShuffleCommand
 import me.devvy.blockshuffle.command.DumpBlocksCommand
 import me.devvy.blockshuffle.command.ICommand
-import me.devvy.blockshuffle.config.ConfigManager
-import me.devvy.blockshuffle.service.BlockManager
 
 @Suppress("unused")
 class BlockShuffleBootstrapper : PluginBootstrap {

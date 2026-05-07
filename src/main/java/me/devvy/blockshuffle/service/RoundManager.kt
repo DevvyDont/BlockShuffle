@@ -1,5 +1,6 @@
 ﻿package me.devvy.blockshuffle.service
 
+import me.devvy.blockshuffle.BlockShuffle
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -8,11 +9,12 @@ import java.util.*
 /**
  * Manages all player-related game logic including scoring, eliminations, and block assignments.
  */
-class RoundManager(private val blockManager: BlockManager) {
+class RoundManager {
 
     private val assignedMaterialMap: MutableMap<UUID, Material> = HashMap()
     private val failedPlayers: MutableSet<UUID> = HashSet()
     private val scoreTracker: MutableMap<UUID, Int> = HashMap()
+    private val plugin = BlockShuffle.getInstance()
 
     fun initializePlayer(player: Player) {
         scoreTracker[player.uniqueId] = 0
@@ -42,7 +44,7 @@ class RoundManager(private val blockManager: BlockManager) {
 
         // Build weighted list of blocks
         for ((difficulty, weight) in difficultyWeights) {
-            val blocks = blockManager.getBlocksByDifficulty(difficulty)
+            val blocks = plugin.blockManager.getBlocksByDifficulty(difficulty)
             // Add each block 'weight' times to create weighted distribution
             repeat(weight) {
                 availableBlocks.addAll(blocks)
@@ -53,7 +55,7 @@ class RoundManager(private val blockManager: BlockManager) {
             availableBlocks.random()
         } else {
             // Fallback to any enabled block if no blocks match the criteria
-            blockManager.getRandomBlock()
+            plugin.blockManager.getRandomBlock()
         }
     }
 

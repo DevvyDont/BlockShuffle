@@ -22,15 +22,15 @@ import org.bukkit.plugin.java.JavaPlugin
 class BlockShuffle : JavaPlugin(), Listener {
 
     private var gameTask: GameLoop? = null
-    private lateinit var configManager: ConfigManager
-    private lateinit var blockManager: BlockManager
+    lateinit var configManager: ConfigManager
+    lateinit var blockManager: BlockManager
 
     var doBlitzMode = true
 
     override fun onEnable() {
         // Initialize managers
         configManager = ConfigManager(this)
-        blockManager = BlockManager(this, configManager)
+        blockManager = BlockManager(this)
 
         // Register events
         server.pluginManager.registerEvents(this, this)
@@ -43,14 +43,14 @@ class BlockShuffle : JavaPlugin(), Listener {
     fun start() {
         stop() // Ensure any existing game is stopped first
 
-        val messenger = GameMessenger(blockManager)
+        val messenger = GameMessenger()
         val worldManager = WorldManager()
         worldManager.initializeAllPlayersForGame(messenger)
 
         // Create and start
-        var gameMode: me.devvy.blockshuffle.gamemode.GameMode = ClassicMode(blockManager)
+        var gameMode: me.devvy.blockshuffle.gamemode.GameMode = ClassicMode()
         if (doBlitzMode)
-            gameMode = BlitzMode(this, blockManager)
+            gameMode = BlitzMode(this)
         gameTask = GameLoop(gameMode)
         gameTask!!.runTaskTimer(this, 0, GameConfig.TASK_TICK_PERIOD)
         server.pluginManager.registerEvents(gameTask!!, this)
@@ -84,13 +84,6 @@ class BlockShuffle : JavaPlugin(), Listener {
      */
     fun getGameTask(): GameLoop? {
         return gameTask
-    }
-
-    /**
-     * Gets the block manager.
-     */
-    fun getBlockManager(): BlockManager {
-        return blockManager
     }
 
     companion object {

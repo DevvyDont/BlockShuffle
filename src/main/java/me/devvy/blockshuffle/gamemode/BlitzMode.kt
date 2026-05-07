@@ -1,7 +1,7 @@
 ﻿package me.devvy.blockshuffle.gamemode
 
+import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.GameConfig
-import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.WorldManager
 import me.devvy.blockshuffle.service.gamemode.PlayerHealthManager
@@ -22,7 +22,6 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerMoveEvent
-import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
 
 /**
@@ -31,8 +30,7 @@ import java.util.*
  * Taking lethal damage or running out of time results in elimination.
  */
 class BlitzMode(
-    private val plugin: JavaPlugin,
-    private val blockManager: BlockManager
+    private val plugin: BlockShuffle,
 ) : GameMode, Listener {
 
     private val timerManager = PlayerTimerManager(
@@ -44,7 +42,7 @@ class BlitzMode(
         timerManager,
         GameConfig.BLITZ_DAMAGE_TO_TIME_RATIO
     )
-    private val messenger = GameMessenger(blockManager)
+    private val messenger = GameMessenger()
     private val worldManager = WorldManager()
 
     private val assignedBlocks: MutableMap<UUID, Pair<Material, Long>> = HashMap()  // UUID -> (Material, assignTime)
@@ -172,7 +170,7 @@ class BlitzMode(
             messenger.showBlockFoundTitle(player)
 
             // Add time bonus
-            val bonus = timerManager.getTimePerBlock() + blockManager.getBlockDifficulty(assignedBlock) * GameConfig.BLITZ_TIME_BONUS_PER_DIFFICULTY
+            val bonus = timerManager.getTimePerBlock() + plugin.blockManager.getBlockDifficulty(assignedBlock) * GameConfig.BLITZ_TIME_BONUS_PER_DIFFICULTY
             timerManager.addTime(player, bonus)
 
             // Increase score
@@ -300,7 +298,7 @@ class BlitzMode(
     private fun assignBlockToPlayer(player: Player) {
         // Use round-based difficulty progression (estimate round based on score)
         val round = (playerScores[player.uniqueId] ?: 0) / 2  // Every 2 blocks found increases difficulty
-        val material = blockManager.getRandomBlockForRound(round)
+        val material = plugin.blockManager.getRandomBlockForRound(round)
 
         assignedBlocks[player.uniqueId] = Pair(material, System.currentTimeMillis())
 

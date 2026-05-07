@@ -1,6 +1,6 @@
 ﻿package me.devvy.blockshuffle.ui
 
-import me.devvy.blockshuffle.service.BlockManager
+import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.util.BlockValidator
 import me.devvy.blockshuffle.util.TextUtils
 import net.kyori.adventure.text.Component
@@ -20,22 +20,19 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
-import org.bukkit.inventory.meta.ItemMeta
-import org.bukkit.plugin.java.JavaPlugin
 
 /**
  * Paginated inventory UI for selecting and toggling blocks.
  * Displays block properties and manages admin block configuration.
  */
 class BlockSelectionMenu(
-    private val plugin: JavaPlugin,
-    private val blockManager: BlockManager,
+    private val plugin: BlockShuffle,
     private val player: Player
 ) : Listener {
 
     private val blocksPerPage = 45
     private var currentPage = 0
-    private val allBlocks: List<Material> = blockManager.getAllValidGameBlocks()
+    private val allBlocks: List<Material> = plugin.blockManager.getAllValidGameBlocks()
     private val inventory: Inventory = Bukkit.createInventory(player, 54, Component.text("Block Manager"))
     private var filter: TriState = TriState.DEFAULT // Filter between default, enabled blocks, disabled blocks
     private var difficultyFilter: Int = 0 // 0 = all, 1-10 = specific difficulty
@@ -43,7 +40,7 @@ class BlockSelectionMenu(
     // If true, we need to rebuild the blocks to display list. Otherwise we can reuse it.
     private var blockDisplayDirty = true
     private var blocksToShow = getBlocksToDisplay()
-    private var blockConfigs = blockManager.getAllBlockConfigs()
+    private var blockConfigs = plugin.blockManager.getAllBlockConfigs()
 
     init {
         registerListeners()
@@ -58,13 +55,13 @@ class BlockSelectionMenu(
     }
 
     private fun getBlocksToDisplay(): List<Material> {
-        blocksToShow = blockManager.getAllValidGameBlocks()
+        blocksToShow = plugin.blockManager.getAllValidGameBlocks()
         if (filter == TriState.TRUE)
-            blocksToShow = blockManager.getEnabledBlocks()
+            blocksToShow = plugin.blockManager.getEnabledBlocks()
         else if (filter == TriState.FALSE)
-            blocksToShow = blockManager.getDisabledBlocks()
+            blocksToShow = plugin.blockManager.getDisabledBlocks()
 
-        blockConfigs = blockManager.getAllBlockConfigs()
+        blockConfigs = plugin.blockManager.getAllBlockConfigs()
         if (difficultyFilter > 0) {
             blocksToShow = blocksToShow.filter { blockConfigs[it]?.difficulty == difficultyFilter }
         }
@@ -363,7 +360,7 @@ class BlockSelectionMenu(
                         // Cycle difficulty
                         val currentDifficulty = blockConfigs[material]?.difficulty ?: 1
                         val newDifficulty = (currentDifficulty % 10) + 1
-                        blockManager.setBlockDifficulty(material, newDifficulty)
+                        plugin.blockManager.setBlockDifficulty(material, newDifficulty)
                         player.sendMessage(
                             Component.text()
                                 .append(Component.text("${BlockValidator.getMaterialDisplayName(material)} difficulty: ", NamedTextColor.GOLD))
@@ -374,7 +371,7 @@ class BlockSelectionMenu(
                     } else {
                         // Toggle enabled/disabled
                         val oldState = blockConfigs[material]?.enabled ?: false
-                        blockManager.toggleBlock(material)
+                        plugin.blockManager.toggleBlock(material)
                         player.sendMessage(
                             Component.text()
                                 .append(Component.text("${BlockValidator.getMaterialDisplayName(material)}: ", NamedTextColor.GOLD))
@@ -414,8 +411,8 @@ class BlockSelectionMenu(
         /**
          * Opens the block selection menu for a player.
          */
-        fun openForPlayer(plugin: JavaPlugin, blockManager: BlockManager, player: Player) {
-            BlockSelectionMenu(plugin, blockManager, player)
+        fun openForPlayer(plugin: BlockShuffle, player: Player) {
+            BlockSelectionMenu(plugin, player)
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿package me.devvy.blockshuffle.service
 
+import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.GameConfig
 import me.devvy.blockshuffle.util.TextUtils
 import me.devvy.blockshuffle.util.TextUtils.append
@@ -26,7 +27,9 @@ import java.util.concurrent.TimeUnit
  * Centralized messaging and UI system for the game.
  * Handles all broadcasts, titles, action bars, and sounds.
  */
-class GameMessenger(private val blockManager: BlockManager) {
+class GameMessenger {
+
+    private val blockManager = BlockShuffle.getInstance().blockManager
 
     fun playTimerWarningSfx(player: Player, ticksLeft: Int) {
         val secondsLeft = (ticksLeft.toDouble() / GameConfig.TASK_FREQUENCY).toInt()

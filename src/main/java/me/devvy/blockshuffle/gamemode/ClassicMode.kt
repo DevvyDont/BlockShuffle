@@ -1,7 +1,6 @@
 ﻿package me.devvy.blockshuffle.gamemode
 
-import me.devvy.blockshuffle.config.GameConfig
-import me.devvy.blockshuffle.service.BlockManager
+import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.GameStateManager
 import me.devvy.blockshuffle.service.GameStateManager.GameState
@@ -19,13 +18,12 @@ import org.bukkit.event.player.PlayerJoinEvent
  * All players must find their assigned block within the round time limit.
  * If they fail, they are eliminated.
  */
-class ClassicMode(
-    private val blockManager: BlockManager
-) : GameMode {
+class ClassicMode : GameMode {
 
     private val stateManager = GameStateManager()
-    private val roundManager = RoundManager(blockManager)
-    private val messenger = GameMessenger(blockManager)
+    private val plugin = BlockShuffle.getInstance()
+    private val roundManager = RoundManager()
+    private val messenger = GameMessenger()
     private val worldManager = WorldManager()
     private var isGameOver = false
 

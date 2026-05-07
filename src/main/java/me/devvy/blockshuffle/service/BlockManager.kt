@@ -1,15 +1,13 @@
 ﻿package me.devvy.blockshuffle.service
 
+import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.BlockConfig
-import me.devvy.blockshuffle.config.ConfigManager
 import me.devvy.blockshuffle.util.BlockValidator
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
 import org.bukkit.Material
-import org.bukkit.plugin.java.JavaPlugin
 import java.io.IOException
-import java.io.InputStreamReader
 
 /**
  * Centralized service for managing valid game blocks.
@@ -17,8 +15,7 @@ import java.io.InputStreamReader
  * Provides methods to load, validate, toggle, and access blocks for gameplay.
  */
 class BlockManager(
-    private val plugin: JavaPlugin,
-    private val configManager: ConfigManager
+    private val plugin: BlockShuffle,
 ) {
 
     private var allValidBlocks: List<Material> = emptyList()
@@ -31,7 +28,7 @@ class BlockManager(
      * Initializes the block manager by loading from config or resources.
      */
     private fun initialize() {
-        val blockConfigs = configManager.getAllBlockConfigs()
+        val blockConfigs = plugin.configManager.getAllBlockConfigs()
 
         // If config is empty, load from blocks.txt resource file (first run)
         if (blockConfigs.isEmpty()) {
@@ -39,14 +36,14 @@ class BlockManager(
             val blockDifficulties = loadBlocksFromResource()
 
             // Initialize with enabled blocks from blocks.txt
-            configManager.initializeBlocks(blockDifficulties)
+            plugin.configManager.initializeBlocks(blockDifficulties)
 
             // Add all other valid game blocks as disabled with default difficulty 1
             val enabledMaterials = blockDifficulties.keys
             val allPossibleBlocks = getAllValidGameBlocks()
             for (material in allPossibleBlocks) {
                 if (!enabledMaterials.contains(material)) {
-                    configManager.setBlockConfig(
+                    plugin.configManager.setBlockConfig(
                         material,
                         me.devvy.blockshuffle.config.BlockConfig(material, 1, false)
                     )
@@ -110,7 +107,7 @@ class BlockManager(
      * Gets all currently disabled blocks.
      */
     fun getDisabledBlocks(): List<Material> {
-        val allConfigs = configManager.getAllBlockConfigs()
+        val allConfigs = plugin.configManager.getAllBlockConfigs()
         return allConfigs.filter { !it.value.enabled }.keys.toList()
     }
 
@@ -128,21 +125,21 @@ class BlockManager(
      * Gets all block configurations.
      */
     fun getAllBlockConfigs(): Map<Material, BlockConfig> {
-        return configManager.getAllBlockConfigs()
+        return plugin.configManager.getAllBlockConfigs()
     }
 
     /**
      * Gets the difficulty of a specific block.
      */
     fun getBlockDifficulty(material: Material): Int {
-        return configManager.getBlockDifficulty(material)
+        return plugin.configManager.getBlockDifficulty(material)
     }
 
     /**
      * Gets blocks filtered by difficulty level.
      */
     fun getBlocksByDifficulty(difficulty: Int): List<Material> {
-        return configManager.getAllBlockConfigs()
+        return plugin.configManager.getAllBlockConfigs()
             .filter { it.value.difficulty == difficulty && it.value.enabled }
             .keys.toList()
     }
@@ -151,7 +148,7 @@ class BlockManager(
      * Gets blocks within a difficulty range (inclusive).
      */
     fun getBlocksByDifficultyRange(minDifficulty: Int, maxDifficulty: Int): List<Material> {
-        return configManager.getAllBlockConfigs()
+        return plugin.configManager.getAllBlockConfigs()
             .filter { it.value.difficulty in minDifficulty..maxDifficulty && it.value.enabled }
             .keys.toList()
     }
@@ -160,7 +157,7 @@ class BlockManager(
      * Refreshes enabled blocks from config (call after external config changes).
      */
     fun refreshEnabledBlocks() {
-        allValidBlocks = configManager.getEnabledBlocks()
+        allValidBlocks = plugin.configManager.getEnabledBlocks()
         plugin.logger.info("Refreshed enabled blocks: ${allValidBlocks.size} blocks active")
     }
 
@@ -168,7 +165,7 @@ class BlockManager(
      * Toggles a block's enabled status and saves to config.
      */
     fun toggleBlock(material: Material): Boolean {
-        val isNowEnabled = configManager.toggleBlock(material)
+        val isNowEnabled = plugin.configManager.toggleBlock(material)
         refreshEnabledBlocks()
         return isNowEnabled
     }
@@ -177,7 +174,7 @@ class BlockManager(
      * Sets the difficulty for a block.
      */
     fun setBlockDifficulty(material: Material, difficulty: Int) {
-        configManager.setBlockDifficulty(material, difficulty)
+        plugin.configManager.setBlockDifficulty(material, difficulty)
     }
 
     /**
@@ -317,7 +314,7 @@ class BlockManager(
      * Useful after manual config edits.
      */
     fun reload() {
-        configManager.load()
+        plugin.configManager.load()
         refreshEnabledBlocks()
     }
 }

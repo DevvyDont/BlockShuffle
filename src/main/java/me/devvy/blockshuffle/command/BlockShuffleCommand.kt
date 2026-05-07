@@ -4,8 +4,6 @@ import com.mojang.brigadier.tree.LiteralCommandNode
 import io.papermc.paper.command.brigadier.CommandSourceStack
 import io.papermc.paper.command.brigadier.Commands
 import me.devvy.blockshuffle.BlockShuffle
-import me.devvy.blockshuffle.config.ConfigManager
-import me.devvy.blockshuffle.service.BlockManager
 import me.devvy.blockshuffle.service.WorldManager
 import me.devvy.blockshuffle.ui.BlockSelectionMenu
 import net.kyori.adventure.text.Component
@@ -149,10 +147,7 @@ class BlockShuffleCommand(
                 sender.sendMessage(Component.text("This command can only be used by players.", NamedTextColor.RED))
                 return@executes 0
             }
-
-            val configManager = ConfigManager(plugin)
-            val blockManager = BlockManager(plugin, configManager)
-            BlockSelectionMenu.openForPlayer(plugin, blockManager, sender)
+            BlockSelectionMenu.openForPlayer(plugin, sender)
             sender.sendMessage(Component.text("Opening block selection menu...", NamedTextColor.GREEN))
             1
         }
