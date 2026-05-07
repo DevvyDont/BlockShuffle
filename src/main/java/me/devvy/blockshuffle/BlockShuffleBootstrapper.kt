@@ -8,6 +8,7 @@ import io.papermc.paper.plugin.lifecycle.event.handler.LifecycleEventHandler
 import io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents
 import me.devvy.blockshuffle.command.BlockShuffleCommand
+import me.devvy.blockshuffle.command.DumpBlocksCommand
 import me.devvy.blockshuffle.command.ICommand
 import me.devvy.blockshuffle.config.ConfigManager
 import me.devvy.blockshuffle.service.BlockManager
@@ -18,7 +19,8 @@ class BlockShuffleBootstrapper : PluginBootstrap {
     override fun bootstrap(context: BootstrapContext) {
         // Get the plugin instance from the bootstrap context
         val commandsToRegister: Array<ICommand> = arrayOf(
-            BlockShuffleCommand()
+            BlockShuffleCommand(),
+            DumpBlocksCommand()
         )
 
         val manager: LifecycleEventManager<BootstrapContext> = context.lifecycleManager

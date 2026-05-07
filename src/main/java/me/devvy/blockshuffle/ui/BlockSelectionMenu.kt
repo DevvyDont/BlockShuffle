@@ -38,7 +38,7 @@ class BlockSelectionMenu(
     private val allBlocks: List<Material> = blockManager.getAllValidGameBlocks()
     private val inventory: Inventory = Bukkit.createInventory(player, 54, Component.text("Block Manager"))
     private var filter: TriState = TriState.DEFAULT // Filter between default, enabled blocks, disabled blocks
-    private var difficultyFilter: Int = 0 // 0 = all, 1-5 = specific difficulty
+    private var difficultyFilter: Int = 0 // 0 = all, 1-10 = specific difficulty
 
     // If true, we need to rebuild the blocks to display list. Otherwise we can reuse it.
     private var blockDisplayDirty = true
@@ -53,12 +53,12 @@ class BlockSelectionMenu(
 
     private fun getOrUpdateBlocksToDisplay(): List<Material> {
         if (!blockDisplayDirty)
-            return allBlocks
+            return blocksToShow
         return getBlocksToDisplay()
     }
 
     private fun getBlocksToDisplay(): List<Material> {
-        var blocksToShow: List<Material> = blockManager.getAllValidGameBlocks()
+        blocksToShow = blockManager.getAllValidGameBlocks()
         if (filter == TriState.TRUE)
             blocksToShow = blockManager.getEnabledBlocks()
         else if (filter == TriState.FALSE)
@@ -242,8 +242,8 @@ class BlockSelectionMenu(
         val lore = mutableListOf<Component>()
         lore.add(Component.empty())
         lore.add(Component.text("> All Difficulties", if (difficultyFilter == 0) NamedTextColor.GREEN else NamedTextColor.DARK_GRAY))
-        for (i in 1..5) {
-            val stars = "★".repeat(i) + "☆".repeat(5 - i)
+        for (i in 1..10) {
+            val stars = "★".repeat(i) + "☆".repeat(10 - i)
             lore.add(Component.text("> Difficulty $i: $stars", if (difficultyFilter == i) NamedTextColor.GREEN else NamedTextColor.DARK_GRAY))
         }
         if (difficultyFilter != 0)
@@ -272,10 +272,9 @@ class BlockSelectionMenu(
 
         lore.add(Component.empty())
         lore.add(Component.text("Difficulty Distribution:", NamedTextColor.GOLD).decoration(TextDecoration.BOLD, true))
-        for (diff in 1..5) {
+        for (diff in 1..10) {
             val count = allBlocks.count { blockConfigs[it]?.difficulty == diff && blockConfigs[it]?.enabled == true }
-            val stars = "★".repeat(diff) + "☆".repeat(5 - diff)
-            lore.add(Component.text("$stars: $count", NamedTextColor.YELLOW))
+            lore.add(TextUtils.difficultyStars(diff, true).append(Component.text(": $count", NamedTextColor.YELLOW)))
         }
 
         lore.add(Component.empty())
@@ -335,8 +334,7 @@ class BlockSelectionMenu(
                 player.playSound(player.location, Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f)
             }
             47 -> {
-                difficultyFilter = (difficultyFilter + 1) % 6 // 0 to 5
-                currentPage = 0
+                difficultyFilter = (difficultyFilter + 1) % 11 // 0 to 10
                 blockDisplayDirty = true
                 render()
                 player.playSound(player.location, Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f)
@@ -364,12 +362,12 @@ class BlockSelectionMenu(
                     if (event.click == ClickType.RIGHT) {
                         // Cycle difficulty
                         val currentDifficulty = blockConfigs[material]?.difficulty ?: 1
-                        val newDifficulty = (currentDifficulty % 5) + 1
+                        val newDifficulty = (currentDifficulty % 10) + 1
                         blockManager.setBlockDifficulty(material, newDifficulty)
                         player.sendMessage(
                             Component.text()
                                 .append(Component.text("${BlockValidator.getMaterialDisplayName(material)} difficulty: ", NamedTextColor.GOLD))
-                                .append(Component.text("★".repeat(newDifficulty) + "☆".repeat(5 - newDifficulty), NamedTextColor.YELLOW))
+                                .append(Component.text("★".repeat(newDifficulty) + "☆".repeat(10 - newDifficulty), NamedTextColor.YELLOW))
                                 .build()
                         )
                         player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f)

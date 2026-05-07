@@ -89,13 +89,18 @@ object TextUtils {
     fun difficultyStars(stars: Int, showAll: Boolean = false): Component {
         var str =  "⭐".repeat(stars)
         if (showAll)
-            str += "✰".repeat(5 - stars)
+            str += "✰".repeat(10 - stars)
         val color = when (stars) {
-            1 -> NamedTextColor.GREEN
-            2 -> NamedTextColor.YELLOW
-            3 -> NamedTextColor.GOLD
-            4 -> NamedTextColor.RED
-            else -> NamedTextColor.DARK_RED
+            1 -> NamedTextColor.WHITE
+            2 -> NamedTextColor.GREEN
+            3 -> NamedTextColor.DARK_GREEN
+            4 -> NamedTextColor.YELLOW
+            5 -> NamedTextColor.GOLD
+            6 -> NamedTextColor.RED
+            7 -> NamedTextColor.DARK_RED
+            8 -> NamedTextColor.AQUA
+            9 -> NamedTextColor.DARK_PURPLE
+            else -> NamedTextColor.LIGHT_PURPLE
         }
         return Component.text(str, color).decoration(TextDecoration.BOLD, false)
     }

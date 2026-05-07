@@ -45,7 +45,9 @@ class GameStateManager {
         state = GameState.INGAME
         paused = false
         timer = GameConfig.GAME_TIME_LIMIT * GameConfig.TASK_FREQUENCY
-        roundNumber = 0
+
+        if (roundNumber < 0)
+            roundNumber = 0
     }
 
     /**
