@@ -248,8 +248,9 @@ class BlitzMode(
         val (assignedBlock, _) = assignedData
 
         val blockBelow = location.block.getRelative(BlockFace.DOWN).type
+        val blockIn = location.block.type
 
-        if (blockBelow == assignedBlock) {
+        if (blockBelow == assignedBlock || blockIn == assignedBlock) {
             // Block found!
             messenger.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1.0f)
             messenger.showBlockFoundTitle(player)
