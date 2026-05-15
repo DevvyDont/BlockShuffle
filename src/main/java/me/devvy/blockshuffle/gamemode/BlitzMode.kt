@@ -7,11 +7,15 @@ import me.devvy.blockshuffle.service.GameMessenger
 import me.devvy.blockshuffle.service.WorldManager
 import me.devvy.blockshuffle.service.gamemode.PlayerHealthManager
 import me.devvy.blockshuffle.service.gamemode.PlayerTimerManager
+import me.devvy.blockshuffle.ui.BlitzShopMenu
 import me.devvy.blockshuffle.util.ItemUtils
 import me.devvy.blockshuffle.util.SimpleGlobalScoreboard
+import me.devvy.blockshuffle.util.TextUtils
 import me.devvy.blockshuffle.util.TextUtils.append
+import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.Difficulty
 import org.bukkit.GameRules
@@ -43,13 +47,16 @@ class BlitzMode(
     private val plugin: BlockShuffle,
 ) : GameMode, Listener {
 
-    private val timerManager = PlayerTimerManager(
+    companion object {
+        val IGNORED_MULTIPLIER_DAMAGE_SOURCE = DamageSource.builder(DamageType.OUT_OF_WORLD).build()
+    }
+
+    val timerManager = PlayerTimerManager(
         GameConfig.BLITZ_STARTING_TIME_SECONDS,
         GameConfig.BLITZ_TIME_PER_BLOCK_SECONDS
     )
     private val healthManager = PlayerHealthManager(
-        plugin,
-        timerManager,
+        this,
         GameConfig.BLITZ_DAMAGE_TO_TIME_RATIO
     )
     private val messenger = GameMessenger()
@@ -62,6 +69,14 @@ class BlitzMode(
     private var isPaused = false
     private var gameStarted = false
     private var isGameOver = false
+    private var ticksElapsed = 0
+
+    var damageMultiplier = 1.0
+
+    // How many times (in seconds) should we up damage multiplier?
+    private val damageMultiplierUpdateFrequency = 60
+    // How high up should damage multiplier go up?
+    private val damageMultiplierUpdateJump = .5
 
     private var scoreboard: SimpleGlobalScoreboard? = null
 
@@ -83,6 +98,7 @@ class BlitzMode(
             setupPlayer(player)
         }
 
+        ticksElapsed = 0
         gameStarted = true
 
         for (world in Bukkit.getWorlds()) {
@@ -96,11 +112,12 @@ class BlitzMode(
         player.saturation = 20f
         player.inventory.clear()
         player.give(
-            ItemStack.of(Material.GOLDEN_AXE),
-            ItemStack.of(Material.GOLDEN_PICKAXE),
-            ItemStack.of(Material.GOLDEN_SHOVEL),
+            ItemUtils.withEfficiency(Material.GOLDEN_AXE, 5, "Blitz Axe"),
+            ItemUtils.withEfficiency(Material.GOLDEN_PICKAXE, 5, "Blitz Pickaxe"),
+            ItemUtils.withEfficiency(Material.GOLDEN_SHOVEL, 5, "Blitz Shovel"),
             ItemUtils.blitzWings(),
-            ItemUtils.temporalFireworkItem()
+            ItemUtils.temporalFireworkItem(),
+            ItemUtils.shoppingItem()
         )
     }
 
@@ -112,6 +129,7 @@ class BlitzMode(
         alive.sortBy { p -> playerScores[p] ?: 0 }
         eliminated.sortBy { p -> playerScores[p] ?: 0 }
 
+        lines.add(Component.empty())
         for (id in alive.reversed()) {
             val player = Bukkit.getPlayer(id) ?: continue
             val score = playerScores[id] ?: 0
@@ -134,8 +152,43 @@ class BlitzMode(
             ))
         }
 
-        scoreboard?.setLines(lines)
+        lines.add(Component.empty())
+        lines.add(append(
+            Component.text("Time Elapsed: ", NamedTextColor.GRAY),
+            Component.text(TextUtils.formatTimeSimple(ticksElapsed), NamedTextColor.GREEN),
+        ))
 
+        // Cancer but essentially purple on updates, red otherwise
+        val dmgMultColor = if (ticksElapsed / GameConfig.TASK_FREQUENCY % damageMultiplierUpdateFrequency == 0) NamedTextColor.LIGHT_PURPLE else NamedTextColor.RED
+        lines.add(append(
+            Component.text("Damage Multiplier: ", NamedTextColor.GRAY),
+            Component.text("${damageMultiplier}x", dmgMultColor, TextDecoration.BOLD),
+        ))
+
+        scoreboard?.setLines(lines)
+    }
+
+    private fun updateDamageMultiplier() {
+
+        // Only execute on exact seconds (not every tick)
+        if (ticksElapsed % GameConfig.TASK_FREQUENCY != 0) return
+
+        val secondsElapsed = ticksElapsed / GameConfig.TASK_FREQUENCY
+        // Don't trigger at time zero (startup)
+        if (secondsElapsed == 0) return
+        // Only update on the configured frequency (e.g. every 60s)
+        if (secondsElapsed % damageMultiplierUpdateFrequency != 0) return
+
+        val tier = secondsElapsed / damageMultiplierUpdateFrequency
+        val newMultiplier = 1.0 + (tier * damageMultiplierUpdateJump)
+        // Only apply and notify when the multiplier actually changes (prevents duplicate sounds)
+        if (newMultiplier != damageMultiplier) {
+            damageMultiplier = newMultiplier
+            // Play a short notification sound for all online players once
+            for (p in Bukkit.getOnlinePlayers()) {
+                p.playSound(p.location, Sound.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1f, 1f)
+            }
+        }
     }
 
     private fun getTopScorers(): Set<UUID> {
@@ -146,6 +199,7 @@ class BlitzMode(
     override fun tick() {
         if (!gameStarted) return
 
+        updateDamageMultiplier()
         displayPlayerTimers()
         updateScoreboard()
 
@@ -181,6 +235,8 @@ class BlitzMode(
         val top = getTopScorers()
         if (top.size == 1 && top.contains(alonePlayer.uniqueId) && Bukkit.getOnlinePlayers().size > 1)
             handleGameOverWinner(alonePlayer)
+
+        ticksElapsed++
     }
 
     override fun onPlayerMove(player: Player, location: Location) {
@@ -392,7 +448,7 @@ class BlitzMode(
         if (!ItemUtils.itemIsCustom(firework, ItemUtils.TEMPORAL_FIREWORK))
             return
 
-        event.player.damage(ItemUtils.FIREWORK_COST.toDouble(), DamageSource.builder(DamageType.OUT_OF_WORLD).build())
+        event.player.damage(ItemUtils.FIREWORK_COST.toDouble(), IGNORED_MULTIPLIER_DAMAGE_SOURCE)
         event.player.world.playSound(event.player.location, Sound.ENTITY_ENDERMAN_HURT, 1f, 1.25f)
         event.setShouldConsume(false)
     }
@@ -410,5 +466,22 @@ class BlitzMode(
             return
 
         event.isCancelled = true
+    }
+
+    @EventHandler
+    fun onUseShop(event: PlayerInteractEvent) {
+
+        val item = event.item ?:
+            return
+
+        if (!ItemUtils.itemIsCustom(item, ItemUtils.SHOP))
+            return
+
+        if (!timerManager.getTrackedPlayers().contains(event.player.uniqueId))
+            return
+
+        event.isCancelled = true
+        val menu = BlitzShopMenu(event.player)
+        menu.open()
     }
 }

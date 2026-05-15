@@ -1,5 +1,7 @@
 ﻿package me.devvy.blockshuffle.service.gamemode
 
+import me.devvy.blockshuffle.BlockShuffle
+import me.devvy.blockshuffle.gamemode.BlitzMode
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
 import org.bukkit.Sound
@@ -19,15 +21,14 @@ import kotlin.math.ceil
  * Health is the only representation of time remaining - taking damage loses time.
  */
 class PlayerHealthManager(
-    private val plugin: JavaPlugin,
-    private val timerManager: PlayerTimerManager,
+    private val mode: BlitzMode,
     private val damageToTimeRatio: Double = 1.0  // Default: 1 damage = 1 second loss
 ) : Listener {
 
     fun setPlayerHealth(player: Player, fullHealthTime: Int) {
 
         val maxHp = player.getAttribute(Attribute.MAX_HEALTH)?.value ?: 20.0
-        val secsLeft = timerManager.getTimeRemainingSeconds(player)
+        val secsLeft = mode.timerManager.getTimeRemainingSeconds(player)
         var newHp = secsLeft.toDouble() / fullHealthTime.toDouble() * maxHp
         val overflow = (newHp - maxHp).coerceAtLeast(0.0)
 
@@ -59,20 +60,22 @@ class PlayerHealthManager(
         val player = event.entity as Player
 
         // Only apply to players currently in a Blitz game
-        if (!timerManager.getTrackedPlayers().contains(player.uniqueId))
+        if (!mode.timerManager.getTrackedPlayers().contains(player.uniqueId))
             return
-        val timeLostSeconds = ceil(event.damage * damageToTimeRatio).toInt()
+        var timeLostSeconds = ceil(event.damage * damageToTimeRatio).toInt()
+        if (event.damageSource.damageType != BlitzMode.IGNORED_MULTIPLIER_DAMAGE_SOURCE.damageType)
+            timeLostSeconds = (timeLostSeconds * mode.damageMultiplier).toInt()
         event.damage = 0.01
         if (player.noDamageTicks > 10)
             return
 
-        timerManager.subtractTime(player, timeLostSeconds)
+        mode.timerManager.subtractTime(player, timeLostSeconds)
 
         // If another player caused this then give them the time
         if (event.damageSource.causingEntity is Player) {
             val damager = event.damageSource.causingEntity as Player
             if (damager.uniqueId != player.uniqueId) {
-                timerManager.addTime(damager, timeLostSeconds)
+                mode.timerManager.addTime(damager, timeLostSeconds)
                 damager.playSound(damager.location, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1f)
             }
         }
@@ -84,10 +87,10 @@ class PlayerHealthManager(
      */
     @EventHandler
     fun onPlayerDeath(event: PlayerDeathEvent) {
-        if (!timerManager.getTrackedPlayers().contains(event.entity.uniqueId)) return
+        if (!mode.timerManager.getTrackedPlayers().contains(event.entity.uniqueId)) return
 
         // Remove from tracking
-        timerManager.removePlayer(event.entity)
+        mode.timerManager.removePlayer(event.entity)
     }
 
     @EventHandler
@@ -97,7 +100,7 @@ class PlayerHealthManager(
             return
         val player = event.entity as Player
         // Only apply to players currently in a Blitz game
-        if (!timerManager.getTrackedPlayers().contains(player.uniqueId))
+        if (!mode.timerManager.getTrackedPlayers().contains(player.uniqueId))
             return
 
         // Cancels all health regen if tracked
@@ -108,7 +111,7 @@ class PlayerHealthManager(
      * Registers this listener with the plugin.
      */
     fun register() {
-        plugin.server.pluginManager.registerEvents(this, plugin)
+        BlockShuffle.getInstance().server.pluginManager.registerEvents(this, BlockShuffle.getInstance())
     }
 
     /**

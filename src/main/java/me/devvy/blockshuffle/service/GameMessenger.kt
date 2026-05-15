@@ -341,6 +341,8 @@ class GameMessenger {
      * Formats time remaining for display.
      */
     fun formatTime(timerTicks: Int, timeModifier: Int? = null): Component {
+
+
         val rawSeconds = timerTicks.toDouble() / GameConfig.TASK_FREQUENCY
         val millis = (rawSeconds * 1000).toLong()
 
