@@ -451,6 +451,7 @@ class BlitzMode(
         event.player.damage(ItemUtils.FIREWORK_COST.toDouble(), IGNORED_MULTIPLIER_DAMAGE_SOURCE)
         event.player.world.playSound(event.player.location, Sound.ENTITY_ENDERMAN_HURT, 1f, 1.25f)
         event.setShouldConsume(false)
+        event.player.setCooldown(firework.type, 50)
     }
 
     @EventHandler
