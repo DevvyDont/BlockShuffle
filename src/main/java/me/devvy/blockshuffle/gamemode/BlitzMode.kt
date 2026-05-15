@@ -371,7 +371,7 @@ class BlitzMode(
      */
     private fun assignBlockToPlayer(player: Player) {
         // Use round-based difficulty progression (estimate round based on score)
-        val round = (playerScores[player.uniqueId] ?: 0) / 2  // Every 2 blocks found increases difficulty
+        val round = (playerScores[player.uniqueId] ?: 0)
         val material = plugin.blockManager.getRandomBlockForRound(round)
 
         assignedBlocks[player.uniqueId] = Pair(material, System.currentTimeMillis())
