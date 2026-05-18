@@ -22,13 +22,15 @@ class BlitzShopMenu(val player: Player) : Listener {
 
     private val CLOSE_BUTTON = 49
 
-    private val BIOME_LOCATOR = 21
+    private val BIOME_LOCATOR = 20
     private val BIOME_LOCATOR_COST = 300
+    private val LOCATOR_RADIUS = 2500
 
-    private val SATIATE_BUTTON = 23
+    private val SATIATE_BUTTON = 22
     private val SATIATE_COST = 120
 
-    private val LOCATOR_RADIUS = 2500
+    private val OXIDIZER_BUTTON = 24
+    private val OXIDIZER_COST = 90
 
 
     private val inventory: Inventory = Bukkit.createInventory(player, 54, Component.text("Blitz Shop"))
@@ -61,6 +63,13 @@ class BlitzShopMenu(val player: Player) : Listener {
             Component.empty(),
             Component.text("Locates a biome in a $LOCATOR_RADIUS block radius", NamedTextColor.GRAY),
             Component.text("Cost: ", NamedTextColor.GRAY).append(Component.text("-${BIOME_LOCATOR_COST}s", NamedTextColor.RED))
+        ))
+        inventory.setItem(OXIDIZER_BUTTON, ItemUtils.withNameAndDescription(
+            Material.CLOCK,
+            Component.text("Oxidizer", NamedTextColor.GOLD),
+            Component.empty(),
+            Component.text("Speeds up the oxidization process of copper", NamedTextColor.GRAY),
+            Component.text("Cost: ", NamedTextColor.GRAY).append(Component.text("-${OXIDIZER_COST}s", NamedTextColor.RED))
         ))
     }
 
@@ -97,6 +106,13 @@ class BlitzShopMenu(val player: Player) : Listener {
                 player.damage(SATIATE_COST.toDouble(), BlitzMode.IGNORED_MULTIPLIER_DAMAGE_SOURCE)
                 player.world.playSound(player.location, Sound.ENTITY_PLAYER_BURP, 1f, .5f)
                 player.sendMessage(Component.text("You suddenly feel full!", NamedTextColor.GREEN))
+            }
+
+            OXIDIZER_BUTTON -> {
+                player.closeInventory()
+                player.sendMessage(Component.text("You were given an oxidizer! Right click a copper block to oxidize it!", NamedTextColor.GREEN))
+                player.give(ItemUtils.oxidizer())
+                player.damage(OXIDIZER_COST.toDouble(), BlitzMode.IGNORED_MULTIPLIER_DAMAGE_SOURCE)
             }
         }
 

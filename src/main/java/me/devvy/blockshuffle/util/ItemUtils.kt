@@ -15,7 +15,9 @@ object ItemUtils {
 
     val TEMPORAL_FIREWORK = "temporal_firework"
     val FIREWORK_COST = 5
+    val OXIDIZE_COST = 30
     val SHOP = "portable_shop"
+    val OXIDIZER = "oxidizer"
     val KEY = NamespacedKey("bs", "item_id")
 
     fun withName(material: Material, name: Component): ItemStack {
@@ -93,5 +95,22 @@ object ItemUtils {
         wings.setData(DataComponentTypes.UNBREAKABLE)
         wings.setData(DataComponentTypes.RARITY, ItemRarity.EPIC)
         return wings
+    }
+
+    fun oxidizer(): ItemStack {
+        val item = ItemStack(Material.CLOCK)
+        item.addUnsafeEnchantment(Enchantment.VANISHING_CURSE, 1)
+        item.setData(DataComponentTypes.RARITY, ItemRarity.EPIC)
+        item.setData(DataComponentTypes.ITEM_NAME, Component.text("Oxidizer"))
+        item.editMeta { ctx ->
+            ctx.lore(listOf(
+                Component.empty(),
+                Component.text("Copper oxidizer Right click a copper block!", NamedTextColor.YELLOW),
+                Component.text("Cost: ", NamedTextColor.GRAY).append(Component.text("-${OXIDIZE_COST}s",
+                    NamedTextColor.RED))
+            ))
+        }
+        tagItemAsCustom(item, OXIDIZER)
+        return item
     }
 }

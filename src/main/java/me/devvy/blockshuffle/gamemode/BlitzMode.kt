@@ -1,5 +1,6 @@
 ﻿package me.devvy.blockshuffle.gamemode
 
+import com.destroystokyo.paper.ParticleBuilder
 import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent
 import me.devvy.blockshuffle.BlockShuffle
 import me.devvy.blockshuffle.config.GameConfig
@@ -12,20 +13,26 @@ import me.devvy.blockshuffle.util.ItemUtils
 import me.devvy.blockshuffle.util.SimpleGlobalScoreboard
 import me.devvy.blockshuffle.util.TextUtils
 import me.devvy.blockshuffle.util.TextUtils.append
+import me.devvy.blockshuffle.util.performOxidization
 import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minecraft.util.BlockUtil
 import org.bukkit.Bukkit
 import org.bukkit.Difficulty
 import org.bukkit.GameRules
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.Particle
 import org.bukkit.Sound
 import org.bukkit.block.BlockFace
+import org.bukkit.block.data.Rotatable
+import org.bukkit.block.data.type.Chest
 import org.bukkit.damage.DamageSource
 import org.bukkit.damage.DamageType
 import org.bukkit.enchantments.Enchantment
+import org.bukkit.entity.CopperGolem
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
@@ -35,6 +42,8 @@ import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerMoveEvent
+import org.bukkit.inventory.DoubleChestInventory
+import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
 import java.util.*
 
@@ -485,5 +494,38 @@ class BlitzMode(
         event.isCancelled = true
         val menu = BlitzShopMenu(event.player)
         menu.open()
+    }
+
+    @EventHandler
+    fun onUseOxidizer(event: PlayerInteractEvent) {
+
+        if (event.action != Action.RIGHT_CLICK_BLOCK)
+            return
+
+        val block = event.clickedBlock ?:
+            return
+
+        val item = event.item
+        if (item == null || !ItemUtils.itemIsCustom(item, ItemUtils.OXIDIZER))
+            return
+
+        event.isCancelled = true
+        val oxidizationResult = performOxidization(block.type)
+        if (oxidizationResult == null) {
+            event.player.sendMessage(Component.text("Oxidization failed! You can't oxidize this block!", NamedTextColor.RED))
+            event.player.playSound(event.player.location, Sound.ENTITY_VEX_CHARGE, 1f, 0.5f)
+            return
+        }
+
+        block.type = oxidizationResult
+
+        event.player.sendMessage(Component.text("Block oxidized successfully!", NamedTextColor.GREEN))
+        event.player.playSound(event.player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1.5f)
+        ParticleBuilder(Particle.CLOUD)
+            .location(block.location.add(0.5, 0.5, 0.5))
+            .count(20)
+            .extra(0.2)
+            .spawn()
+        event.player.damage(ItemUtils.OXIDIZE_COST.toDouble(), IGNORED_MULTIPLIER_DAMAGE_SOURCE)
     }
 }
